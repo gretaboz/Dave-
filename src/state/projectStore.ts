@@ -42,7 +42,7 @@ const contentKeys = {
   evidence: ['categories', 'passage', 'source', 'text', 'form', 'location', 'context', 'limitations'],
   claims: ['statement', 'evidence', 'context', 'stakeholder', 'limitations', 'review'],
   relationships: ['evidence', 'description', 'type', 'claims', 'explanation', 'contextCheck', 'challenge', 'limitations', 'review'],
-  dimensions: ['name', 'lowLabel', 'midLabel', 'highLabel', 'rationale', 'grounding', 'draftPosition', 'explanation', 'claims', 'relationships', 'limitations', 'review'],
+  dimensions: ['evidence', 'researchPassages', 'generation', 'name', 'lowLabel', 'midLabel', 'highLabel', 'lowExplanation', 'midExplanation', 'highExplanation', 'rationale', 'grounding', 'draftPosition', 'explanation', 'claims', 'relationships', 'limitations', 'review'],
   dimensionPositions: ['dimension', 'selected', 'value', 'reasoning', 'confirmedAt'],
   explorationNodes: ['title', 'content', 'references', 'dimensionPositions', 'limitations'],
   explorationConnections: ['fromNodeId', 'toNodeId', 'label', 'directional'],
@@ -143,6 +143,12 @@ export function createProjectStore() {
       }
       case 'dimensions': {
         const dimension = value as M.Dimension;
+        dimension.evidence?.forEach(ref=>resolve('evidence',ref));
+        dimension.researchPassages?.forEach(({category,passage})=>{
+          const content=resolve('categories',category);
+          if(!content.passages?.some(p=>equal(p,passage)))throw new Error('A dimension passage must match its original category revision.');
+          resolve('sources',passage.source);
+        });
         dimension.claims.forEach(ref => resolve('claims', ref));
         dimension.relationships.forEach(ref => resolve('relationships', ref));
         break;
@@ -297,7 +303,16 @@ export function createProjectStore() {
       publish({...state,claims:state.claims.map(c=>byId.has(c.id)?{...c,mapPosition:structuredClone(byId.get(c.id)!),updatedAt:now()}:c)});
     },
     relationships: operations('relationships'),
-    dimensions: operations('dimensions'),
+    dimensions: {
+      ...operations('dimensions'),
+      remove(dimensionId: M.Dimension['id']) {
+        const state = current();
+        find('dimensions', dimensionId);
+        const time = now();
+        publish({ ...state, dimensions: state.dimensions.map(d => d.id === dimensionId
+          ? { ...d, archivedAt: time, updatedAt: time } : d) });
+      },
+    },
     explorationNodes: operations('explorationNodes'),
     explorationConnections: operations('explorationConnections'),
     setDimensionPosition(input: M.DimensionPositionContent, options: EditOptions = {}): M.DimensionPosition {

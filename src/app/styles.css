@@ -587,3 +587,30 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .research-folder-workspace .research-category-option[aria-pressed='true'] { background: var(--category-surface, var(--color-surface)); color: var(--color-text); }
 .research-folder-workspace .research-category-option[aria-pressed='true']::after { background: var(--category-surface, var(--color-surface)); }
 .map-category { background: var(--category-surface, var(--color-surface-secondary)); border-color: var(--color-border); }
+
+/* Dimensions extends the existing map world; no duplicate research entities. */
+.map-dimensions-area { position: absolute; width: 330px; padding: 18px; border: 1px solid var(--color-border); border-radius: 12px; background: #fafafa; }
+.dimension-area-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dimension-area-heading h3, .dimension-area-heading h4 { margin: 0; overflow-wrap: anywhere; }
+.dimension-card { margin-top: 16px; padding: 16px; background: white; border: 1px solid var(--color-border); border-radius: 9px; font-size: 14px; overflow-wrap: anywhere; }
+.dimension-card p, .dimension-empty { font-size: 14px; line-height: 1.5; color: var(--color-text-muted); }
+.dimension-card > p { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.dimension-tuning { display: flex; gap: 6px; margin: 12px 0; }
+.dimension-tuning button { flex: 1; border: 1px solid var(--color-border); border-radius: 6px; background: #fafafa; padding: 8px; cursor: pointer; }
+.dimension-tuning button[aria-pressed=true] { background: #e9f1fa; border-color: #91b0d2; color: #365e84; }
+.dimension-selected-label { display: block; margin-bottom: 12px; }
+.dimension-editor { display: grid; gap: 12px; }
+.dimension-editor fieldset { border: 1px solid var(--color-border); border-radius: 8px; min-width: 0; display: grid; gap: 10px; }
+.dimension-editor p { font-size: 14px; line-height: 1.5; }
+.dimension-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.dimension-association { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.5; }
+.dimension-association input { flex: none; width: auto; }
+.dimension-finding { border-bottom: 1px solid var(--color-border); padding-bottom: 14px; }
+
+.dimension-proposals { margin: 18px 0; }
+.dimension-proposal { padding: 14px 0; border-bottom: 1px solid var(--color-border); }
+.dimension-proposal p { margin: 8px 0; }
+.dimension-proposal small { display: block; margin-bottom: 10px; color: var(--color-text-muted); }
+.dimension-proposal-positions dt { font-weight: 600; }
+.dimension-proposal-positions dd { margin: 6px 0 14px; }
+.dimension-proposals[aria-label] { max-height: 340px; overflow-y: auto; padding-right: 8px; }

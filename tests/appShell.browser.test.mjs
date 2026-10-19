@@ -224,7 +224,7 @@ test('project title can be edited and persists after refresh; Research heading i
   } finally { await context.close(); }
 });
 
-test('Dimensions is a placeholder and preserves saved research, reviews and dimensions without AI requests', async () => {
+test('Opening manual Dimensions preserves saved research, reviews and dimensions without AI requests', async () => {
   const { context, page, errors } = await openShell();
   const requests = [];
   page.on('request', request => { if (request.url().includes('/api/dimensions/')) requests.push(request.url()); });
@@ -245,9 +245,11 @@ test('Dimensions is a placeholder and preserves saved research, reviews and dime
     await waitForText(page, 'status', 'Saved locally.');
     for (let i = 0; i < 2; i++) {
       await page.getByRole('button', { name: 'Dimensions', exact: true }).click();
-      await page.getByText('Dimensions — To be redesigned', { exact: true }).waitFor();
-      assert.equal(await page.locator('.map-dimension, .dimensions-workspace').count(), 0);
-      assert.equal(await page.getByRole('button', { name: /Generate dimensions|Confirm dimensions|Add custom dimension/ }).count(), 0);
+      await page.getByRole('button', { name: 'Show dimensions', exact: true }).click();
+      await page.locator('.dimension-card').getByRole('heading', { name: 'Saved variation', exact: true }).waitFor();
+      assert.equal(await page.locator('.dimensions-workspace').count(), 1);
+      assert.equal(await page.locator('.dimension-card').count(), 1);
+      assert.equal(await page.getByRole('button', { name: /Confirm dimensions|Add custom dimension/ }).count(), 0);
       assert.deepEqual(await currentProject(page), before);
       assert.deepEqual(await page.evaluate(async () => (await import('/src/persistence/localPersistence.ts')).createLocalPersistence().loadProject()), before);
       if (i === 0) { await page.reload(); await waitForText(page, 'status', 'Saved locally.'); }

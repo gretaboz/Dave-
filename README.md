@@ -363,3 +363,61 @@ names) and passage category references. The server validates references against
 that catalogue; the browser verifies the complete passage/category input against
 the latest shared project before publishing any result. Existing interpre­tations,
 reviews, source files and reference histories are preserved.
+
+### Manual Dimensions
+
+Dimensions now extends the shared Research/Relationships map to the right. Use
+Show dimensions or pan across the map. Add dimension opens a manual editor with a
+title, brief explanation, three required position labels and optional position
+explanations. The middle position represents an approach, rather than indecision.
+Existing claims and relationships can be associated by their original IDs and
+revisions. Associated findings shows the saved wording and exposes the existing
+research inspector; dotted blue lines stay faintly visible and brighten when a dimension is selected.
+Upstream map arrangement remains editable in Relationships.
+
+Creation, edits, associations and tuning use the existing project store and local
+persistence. UI positions -1 / 0 / +1 map to the existing stored values 0 / .5 / 1.
+Earlier continuous or undecided values remain intact until explicitly changed.
+Earlier dimensions missing a middle label remain intact and can be completed in
+Edit. Remove archives the dimension, retaining its history, positions and downstream
+references. There is no archive restoration UI in this increment.
+
+The manual increment initially added no generation AI; see AI-assisted proposals below. The browser check
+`tests/dimensions.browser.test.mjs` exercises manual creation, editing, removal,
+all three positions across reloads, associations and preservation of old project data.
+
+### AI-assisted dimension proposals
+
+Generate dimensions calls `/api/dimensions/generate` through the existing local
+backend and server-side key. Its separate prompt asks for approximately four to
+six distinct design considerations, each with three meaningful positions. Sparse
+research can legitimately yield fewer or no proposals. Research excerpts use
+original source revisions; claim and relationship references use existing IDs.
+Only accepted/partially accepted interpretations are supplied as findings. Research
+category review status is explicit. Stale relationship-to-claim revisions are
+excluded with a limitation; unreviewed category material alone can motivate only
+an explicitly labelled inference.
+
+Proposals persist in the shared dimension collection with DAVE origin, generation
+metadata, source references and proposed review status. Inspect proposal shows
+reasoning, position meanings, original excerpts, limitations and inference status.
+The existing editor can edit proposals before acceptance. Accept activates the
+card in the existing map and initialises a middle position only if no prior tuning
+exists. Reject keeps the record and history outside the active map. Manual dimensions
+retain their existing behavior. No new visual association lines are added for
+AI-generated dimensions.
+
+Regeneration appends new proposals and supplies all earlier dimensions, including
+rejected/archived decisions, to avoid repeating them. Browser and backend validate
+the complete reference catalogue and reject invalid batches. Normalised names and
+matching endpoint labels suppress duplicates; conceptual duplicates with entirely
+different wording still require designer review. No automatic merging is performed.
+Changes to research or dimensions during a request invalidate that response;
+concurrent tuning is preserved. Network failures leave existing project state intact,
+show a retryable error and leave manual creation available. Demo does not call AI.
+
+Verification covers valid/invalid references, insufficient research, duplicates,
+review/edit/reject, source inspection, persistence, stale responses and API failure.
+The live endpoint was also checked with synthetic research without modifying the
+user's project. Research/Relationships generation and later workflow stages are
+unchanged.

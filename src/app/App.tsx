@@ -1,3 +1,4 @@
+import { DimensionsWorkspace } from '../features/dimensions/DimensionsWorkspace';
 import { useState } from 'react';
 import { RelationshipsWorkspace } from '../features/relationships/RelationshipsWorkspace';
 import { ProjectWorkspace } from './ProjectWorkspace';
@@ -36,7 +37,7 @@ export function App() {
       <ResearchProjectScope mode={researchMode}><main className={`workspace${activeStage === 'Research' ? ' workspace-research' : ''}`} aria-label="Design workspace">
         {activeStage !== 'Research' && <h2 className="workspace-title">{activeStage}</h2>}
         <ProjectWorkspace />
-        {activeStage === 'Dimensions' && <p>Dimensions — To be redesigned</p>}
+        {activeStage === 'Dimensions' && <DimensionsWorkspace mode={researchMode} />}
         <div hidden={activeStage !== 'Relationships'}><RelationshipsWorkspace mode={researchMode} /></div>
         <div hidden={activeStage !== 'Research'}><ResearchModes mode={researchMode} onModeChange={setResearchMode} /></div>
       </main></ResearchProjectScope>

@@ -190,9 +190,15 @@ export interface Relationship
 }
 
 export interface DimensionContent {
+  evidence?: EntityReference<'evidence'>[];
+  researchPassages?: {category: EntityReference<'research_category'>; passage: ResearchPassage}[];
+  generation?: {model:string;promptVersion:string;generatedAt:Timestamp};
   name: string;
   lowLabel: string;
   midLabel?: string;
+  lowExplanation?: string;
+  midExplanation?: string;
+  highExplanation?: string;
   highLabel: string;
   rationale?: string;
   grounding?: 'research_grounded' | 'inferred';
@@ -209,7 +215,7 @@ export interface Dimension extends Entity<'dimension', DimensionContent>, Dimens
 export interface DimensionPositionContent {
   dimension: EntityReference<'dimension'>;
   selected: boolean;
-  /** 0–1 between the endpoints; null is undecided, 0.5 is deliberately neutral. */
+  /** 0–1 between the endpoints; null is undecided, 0.5 is a deliberate middle approach. */
   value: number | null;
   reasoning?: string;
   confirmedAt?: Timestamp;

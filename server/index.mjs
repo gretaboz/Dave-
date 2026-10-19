@@ -4,6 +4,7 @@ import { loadEnvFile } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { analyseResearch, validateInput } from './ai/research.mjs';
 import { analyseRelationships, validateInput as validateRelationshipsInput } from './ai/relationships.mjs';
+import { generateDimensions, validateDimensionInput } from './ai/dimensions.mjs';
 const envPath = fileURLToPath(new URL('./.env', import.meta.url));
 if (existsSync(envPath)) loadEnvFile(envPath);
 let busy = false;
@@ -11,8 +12,9 @@ const server = createServer(async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-store');
   const send = (status, body) => { res.writeHead(status); res.end(JSON.stringify(body)); };
+  const dimensions = req.url === '/api/dimensions/generate';
   const relationships = req.url === '/api/relationships/analyse';
-  if ((!relationships && req.url !== '/api/research/cluster') || req.method !== 'POST') return send(404, { error: 'Not found.' });
+  if ((!dimensions && !relationships && req.url !== '/api/research/cluster') || req.method !== 'POST') return send(404, { error: 'Not found.' });
   // JSON-only, same-local-origin requests; no permissive CORS or remote binding.
   const origin = req.headers.origin;
   if (origin && !/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(origin))
@@ -28,9 +30,9 @@ const server = createServer(async (req, res) => {
       parts.push(part);
     }
     let input;
-    try { input = JSON.parse(Buffer.concat(parts).toString('utf8')); (relationships ? validateRelationshipsInput : validateInput)(input); }
-    catch { return send(400, { error: 'Invalid research input or prototype size limit exceeded.' }); }
-    const output = await (relationships ? analyseRelationships : analyseResearch)(input, { apiKey: process.env.OPENAI_API_KEY, model: process.env.OPENAI_MODEL || 'gpt-4.1-mini' });
+    try { input = JSON.parse(Buffer.concat(parts).toString('utf8')); (dimensions ? validateDimensionInput : relationships ? validateRelationshipsInput : validateInput)(input); }
+    catch (error) { return send(400, { error: dimensions && error instanceof Error ? error.message : 'Invalid research input or prototype size limit exceeded.' }); }
+    const output = await (dimensions ? generateDimensions : relationships ? analyseRelationships : analyseResearch)(input, { apiKey: process.env.OPENAI_API_KEY, model: process.env.OPENAI_MODEL || 'gpt-4.1-mini' });
     send(200, output);
   } catch (error) {
     send(502, { error: error instanceof Error ? error.message : 'Research analysis failed. Please retry.' });
