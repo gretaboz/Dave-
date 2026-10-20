@@ -64,10 +64,10 @@ test('creates a real empty project, keeps one project through every stage, and r
     for (const key of ['sources', 'categories', 'evidence', 'claims', 'relationships', 'dimensions',
       'dimensionPositions', 'explorationNodes', 'explorationConnections', 'directions']) assert.deepEqual(project[key], []);
     for (const stage of ['Research', 'Relationships', 'Dimensions', 'Explore', 'Directions']) {
-      await page.getByRole('button', { name: new RegExp(`${stage}$`) }).click();
+      await page.getByRole('button', { name: stage, exact: true }).click();
       if (stage !== 'Research') await page.getByRole('heading', { name: stage, level: 2, exact: true }).waitFor();
       else assert.equal(await page.getByRole('heading', { name: stage, level: 2, exact: true }).count(), 0);
-      assert.equal(await page.getByRole('button', { name: new RegExp(`${stage}$`) }).getAttribute('aria-current'), 'step');
+      assert.equal(await page.getByRole('button', { name: stage, exact: true }).getAttribute('aria-current'), 'step');
       await page.getByRole('heading', { name: 'Museum visit', exact: true }).waitFor();
       assert.deepEqual(await currentProject(page), project);
     }

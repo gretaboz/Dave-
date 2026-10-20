@@ -61,7 +61,7 @@ test('dimension proposals require review, retain evidence and edits, regenerate 
  empty=true;await generate();await page.getByRole('status').filter({hasText:'Insufficient context'}).waitFor();assert.deepEqual(await snapshot(),preserved);empty=false;
  fail=true;await generate();await page.getByRole('alert').filter({hasText:'Synthetic API failure'}).waitFor();assert.deepEqual(await snapshot(),preserved);fail=false;
  // Research changes during a request must invalidate the result atomically.
- release={};const requested=requests;await generate();await page.waitForFunction(()=>document.querySelector('button[disabled]')?.textContent==='Generating dimensions…');
+ release={};const requested=requests;await generate();await page.waitForFunction(()=>document.querySelector('.dimensions-workspace button[disabled]')?.textContent==='Generating dimensions…');
  while(requests===requested)await new Promise(r=>setTimeout(r,10));
  await page.evaluate(async()=>{(await import('/src/state/projectStore.ts')).projectStore.updateProject({context:'Changed during generation'});});
  while(!release.resolve)await new Promise(r=>setTimeout(r,10));release.resolve();

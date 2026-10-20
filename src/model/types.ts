@@ -66,6 +66,9 @@ export interface ProjectContent {
 
 export interface Project extends Entity<'project', ProjectContent>, ProjectContent {
   modelVersion: 1;
+  /** Optional additions keep existing version-1 projects readable. */
+  exploration?: { sessions: ExplorationSession[]; activeSessionId: EntityId<'exploration_session'> };
+  mapViews?: Partial<Record<MapStage, MapViewport>>;
   sources: Source[];
   categories: ResearchCategory[];
   evidence: Evidence[];
@@ -229,7 +232,36 @@ export type ExplorationContent =
   | { type: 'note' | 'idea' | 'question'; text: string }
   | { type: 'image' | 'sketch'; asset: AssetReference; text?: string };
 
+export type MapStage = 'Research' | 'Relationships' | 'Dimensions' | 'Explore';
+export interface MapViewport { x: number; y: number; scale: number }
+export interface ExplorationSetting extends TuningSnapshot {
+  midLabel?: string;
+  positionLabel: string;
+  positionExplanation?: string;
+}
+export interface ExplorationSessionContent { tuningSnapshot: ExplorationSetting[] }
+export interface ExplorationSession extends Entity<'exploration_session', ExplorationSessionContent>, ExplorationSessionContent {
+  /** Presentation changes do not revise the immutable tuning snapshot. */
+  name?: string;
+  position?: {x:number;y:number};
+  expanded?: boolean;
+  duplicateOf?: EntityId<'exploration_session'>;
+  nameHistory?: {name:string;changedAt:Timestamp}[];
+}
+
 export interface ExplorationNodeContent {
+  explorationSession?: EntityReference<'exploration_session'>;
+  branchParent?: EntityReference<'exploration_node'>;
+  questionState?: 'open' | 'skipped';
+  question?: {
+    purpose: string; grounding: 'research_grounded' | 'inferred';
+    categories: EntityReference<'research_category'>[];
+    researchPassages?: {category: EntityReference<'research_category'>; passage: ResearchPassage}[];
+    branch: EntityReference<'exploration_node'>[];
+    considered: ResearchReferences;
+    consideredPositions: EntityReference<'dimension_position'>[];
+    generation: { model: string; promptVersion: string; generatedAt: Timestamp };
+  };
   title?: string;
   content: ExplorationContent;
   /** Empty lists are valid for free exploration without research grounding. */
@@ -242,6 +274,9 @@ export interface ExplorationNode
   extends Entity<'exploration_node', ExplorationNodeContent>, ExplorationNodeContent {
   /** Board movement is not part of meaningful content history. */
   position: { x: number; y: number };
+  /** Absent on cards saved by the original independent board. */
+  coordinateSpace?: 'design-map';
+  branchAligned?: boolean;
 }
 
 export interface ExplorationConnectionContent {

@@ -10,6 +10,8 @@ export function App() {
   const [researchMode, setResearchMode] = useState(initialResearchMode);
   const [activeStage, setActiveStage] = useState<(typeof stages)[number]>('Research');
 
+  const [showResearchMap,setShowResearchMap]=useState(false);
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -37,9 +39,13 @@ export function App() {
       <ResearchProjectScope mode={researchMode}><main className={`workspace${activeStage === 'Research' ? ' workspace-research' : ''}`} aria-label="Design workspace">
         {activeStage !== 'Research' && <h2 className="workspace-title">{activeStage}</h2>}
         <ProjectWorkspace />
-        {activeStage === 'Dimensions' && <DimensionsWorkspace mode={researchMode} />}
-        <div hidden={activeStage !== 'Relationships'}><RelationshipsWorkspace mode={researchMode} /></div>
-        <div hidden={activeStage !== 'Research'}><ResearchModes mode={researchMode} onModeChange={setResearchMode} /></div>
+        <div hidden={activeStage !== 'Relationships'}><RelationshipsWorkspace mode={researchMode} controlsOnly /></div>
+        <div hidden={activeStage !== 'Research'}><ResearchModes mode={researchMode} onModeChange={setResearchMode} />
+          <button className="research-text-button" onClick={()=>setShowResearchMap(v=>!v)}>{showResearchMap?'Hide Design Map':'Show Design Map'}</button>
+        </div>
+        <div hidden={activeStage==='Directions'||(activeStage==='Research'&&!showResearchMap)}>
+          <DimensionsWorkspace mode={researchMode} stage={activeStage==='Directions'?'Explore':activeStage} onExplore={()=>setActiveStage('Explore')} />
+        </div>
       </main></ResearchProjectScope>
     </div>
   );

@@ -1,10 +1,14 @@
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import type { Claim, Dimension, DimensionContent, Project, Relationship } from '../../model/types';
+import type { Claim, Dimension, DimensionContent, MapStage, MapViewport, Project, Relationship } from '../../model/types';
 import { useProject, useProjectStore, useProjectSession } from '../../state/ProjectProvider';
 import { RelationshipsMap } from '../relationships/RelationshipsMap';
 import type { MapSelection } from '../relationships/RelationshipsMap';
 import { prepareDimensions, applyDimensions, reviewDimension } from './generation';
+import { matchingExplorationBranch,explorationSettings, confirmReviewedExploration } from './explorationConfirmation';
+import type { ExplorationSettings } from './explorationConfirmation';
+import {branchPoint,branchName} from '../exploration/layout';
+import { useExploration } from '../exploration/ExplorationWorkspace';
 import { RelationshipInspector } from '../relationships/RelationshipInspector';
 
 const positions = [-1, 0, 1] as const;
@@ -72,7 +76,7 @@ function DimensionExcerpts({project,dimension}:{project:Project;dimension:Dimens
   return <>{excerpts.map(e=>{const source=project.sources.find(s=>s.id===e.sourceId);return <details className="inspector-excerpt" key={e.key}><summary>{source?.title??'Source unavailable'} · {e.location??'Location unavailable'}</summary><blockquote>{e.text??'Excerpt unavailable'}</blockquote>{source&&<button className="research-text-button" onClick={()=>void download(source)}>Download original source</button>}</details>;})}{error&&<p role="alert">{error}</p>}</>;
 }
 
-export function DimensionsWorkspace({mode='live'}:{mode?:'live'|'demo'}) {
+export function DimensionsWorkspace({mode='live',stage='Dimensions',onExplore}:{mode?:'live'|'demo';stage?:MapStage;onExplore?:()=>void}) {
   const { project, errorOperation } = useProject();
   const store = useProjectStore();
   const [busy,setBusy]=useState(false);
@@ -82,15 +86,34 @@ export function DimensionsWorkspace({mode='live'}:{mode?:'live'|'demo'}) {
   const [selection, setSelection] = useState<MapSelection | null>(null);
   const [associated, setAssociated] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [confirmation,setConfirmation]=useState<ExplorationSettings|null>(null);
+  const confirmationRef=useRef<HTMLElement>(null);
+  useEffect(()=>{if(confirmation){confirmationRef.current?.focus();confirmationRef.current?.scrollIntoView({block:'nearest'});}},[confirmation]);
+  const [focusRequest,setFocusRequest]=useState<{dimensionId?:string;point?:{x:number;y:number};token:number}>();
+  const onViewChange=useCallback((stage:MapStage,view:MapViewport)=>store.setMapView(stage,view),[store]);
+  const exploration=useExploration({project,store,mode,onExplore,active:stage==='Explore',onFocusCard:point=>setFocusRequest({point,token:Date.now()}),onInspectDimension:id=>{
+    setAssociated(id);setEditing(null);setSelection(null);setFocusRequest({dimensionId:id,token:Date.now()});
+  }});
   if (!project || errorOperation === 'load') return null;
+  const matchingBranch=matchingExplorationBranch(project);
+  const matchHint=matchingBranch ? `This tuning already exists in ${branchName(project,matchingBranch)}. Change tuning to create a new branch.` : undefined;
   const allDimensions=project.dimensions.filter(d=>!d.archivedAt);
   const dimensions = allDimensions.filter(d=>d.origin==='researcher'||d.review.state==='accepted');
   const proposals=allDimensions.filter(d=>d.origin!=='researcher'&&d.review.state!=='accepted'&&d.review.state!=='rejected');
   const rejected=allDimensions.filter(d=>d.origin!=='researcher'&&d.review.state==='rejected');
   const dimension = allDimensions.find(d => d.id === editing);
   const selected = selection?.kind === 'claim' ? project.claims.find(c => c.id === selection.id) : project.relationships.find(r => r.id === selection?.id);
-  const inspected = allDimensions.find(d => d.id === associated);
+  const inspected = project.dimensions.find(d => d.id === associated);
   const attempt = (action: () => void) => { try { action(); setError(''); } catch (e) { setError(e instanceof Error ? e.message : 'Could not save your change.'); } };
+  function focusConfirmedBranch() {
+    const latest=store.getProject()!;const branch=latest.exploration!.sessions.find(s=>s.id===latest.exploration!.activeSessionId)!;
+    setFocusRequest({point:branchPoint(latest,branch),token:Date.now()});
+  }
+  function confirmTuning() { attempt(()=>{
+    const settings=explorationSettings(store.getProject()!);
+    if(settings.some(s=>s.changed)){setConfirmation(settings);return;}
+    store.confirmExploration();setConfirmation(null);onExplore?.();focusConfirmedBranch();
+  }); }
   async function generate() {
     if(requestBusy.current)return;
     if(mode==='demo'){setError('AI generation is available in Live AI mode. Manual dimensions remain available in Demo.');return;}
@@ -120,6 +143,10 @@ export function DimensionsWorkspace({mode='live'}:{mode?:'live'|'demo'}) {
         onKeyDown={event=>{if(event.target===event.currentTarget&&(event.key==='Enter'||event.key===' ')){event.preventDefault();setAssociated(d.id);setEditing(null);setSelection(null);}}}>
         <div className="dimension-area-heading"><h4>{d.name}</h4><button className="research-text-button" aria-label={`Edit ${d.name}`} onClick={() => { setEditing(d.id); setAssociated(null); }}>Edit</button></div>
         <p>{d.explanation}</p>
+        <label className="dimension-association"><input type="checkbox" checked={position?.selected ?? false} onChange={event=>attempt(()=>{
+          if (!position) throw new Error('Choose a position before selecting this dimension.');
+          store.setDimensionPosition({...position,selected:event.target.checked});
+        })} />Use for exploration</label>
         <div className="dimension-tuning" role="group" aria-label={`Position for ${d.name}`}>{positions.map((value, i) => <button key={value} aria-pressed={index === i} aria-label={`${value > 0 ? '+1' : value}: ${d[labels[i]] || 'Middle label not set'}`} onClick={() => attempt(() => {
           store.setDimensionPosition({ ...position, dimension: ref(d), selected: position?.selected ?? true, value: i / 2 });
         })}>{value > 0 ? '+1' : value}</button>)}</div>
@@ -129,8 +156,20 @@ export function DimensionsWorkspace({mode='live'}:{mode?:'live'|'demo'}) {
         <button className="research-text-button" onClick={() => { setAssociated(associated === d.id ? null : d.id); setEditing(null); setSelection(null); }}>Associated findings ({d.claims.length + d.relationships.length + (d.evidence?.length??0) + (d.researchPassages?.length??0)})</button>
       </article>;
     })}
+    <button className="project-button dimension-confirm-map" aria-label="Save tuning as a new branch" disabled={!!matchingBranch} aria-describedby={matchHint?'tuning-match-map':undefined} onClick={confirmTuning}>Confirm tuning</button>
+    {matchHint&&<p id="tuning-match-map" className="relationship-map-help" role="status">{matchHint}</p>}
   </section>;
-  return <section className="dimensions-workspace">
+  return <section className="dimensions-workspace progressive-map-workspace" aria-label="Progressive Design Map">
+    {confirmation&&<section className="dimension-confirmation" ref={confirmationRef} tabIndex={-1} aria-label="Review settings before exploration">
+      <h3>Review your selected settings</h3>
+      <p>A selected Dimension was edited after you chose its position. Review the current wording below. Your slider values will stay the same.</p>
+      <ul>{confirmation.map(s=><li key={s.position.id}><strong>{s.name}</strong><span>{s.value===0?'−1':s.value===.5?'0':s.value===1?'+1':s.value===null?'Undecided':`${Math.round(s.value*100)}%`}: {s.label}</span>{s.changed&&s.previousLabel!==s.label&&<small>Previously: {s.previousLabel}</small>}</li>)}</ul>
+      <div className="dimension-actions"><button className="project-button" disabled={!!matchingBranch} title={matchHint} onClick={()=>attempt(()=>{store.restoreProject(confirmReviewedExploration(store.getProject()!,confirmation));setConfirmation(null);onExplore?.();focusConfirmedBranch();})}>Confirm reviewed tuning</button><button className="research-text-button" onClick={()=>setConfirmation(null)}>Cancel review</button></div>
+    </section>}
+    {stage==='Dimensions' && <>
+    <button className="project-button" disabled={!!matchingBranch} aria-describedby={matchHint?'tuning-match-top':undefined} onClick={confirmTuning}>Confirm tuning</button>
+    {matchHint&&<p id="tuning-match-top" className="relationship-map-help" role="status">{matchHint}</p>}
+    {error && <p className="project-error" role="alert">{error}</p>}
     <p>Add design considerations, connect relevant findings, and choose a position for each.</p>
     <button className="project-button" disabled={busy} onClick={()=>void generate()}>{busy?'Generating dimensions…':'Generate dimensions'}</button>
     <p className="relationship-map-help">Proposals use source excerpts and reviewed interpretations. Unreviewed interpretations are excluded. Accept a proposal before tuning it.</p>
@@ -143,11 +182,15 @@ export function DimensionsWorkspace({mode='live'}:{mode?:'live'|'demo'}) {
       <button className="research-text-button" onClick={()=>attempt(()=>{store.restoreProject(reviewDimension(store.getProject()!,d.id,'rejected'));if(associated===d.id)setAssociated(null);})}>Reject</button></div>
     </article>)}</section>}
     {rejected.length>0&&<details className="dimension-proposals"><summary>Rejected proposals ({rejected.length})</summary>{rejected.map(d=><p key={d.id}>{d.name}</p>)}</details>}
-    {error && <p role="alert">{error}</p>}
+    </>}
+    {exploration.toolbar}
+    {stage==='Explore' && !exploration.session && <p>In Dimensions, select the considerations you want to explore, choose their positions, then use Confirm tuning.</p>}
+    {stage!=='Dimensions' && error && <p role="alert">{error}</p>}
     <div className="relationships-layout relationships-map-layout">
-      <RelationshipsMap readOnly project={project} selection={selection} onSelect={s => { setSelection(s); setEditing(null); setAssociated(null); }}
-        onMove={() => {}} onReorganise={() => {}} extension={{ content: cards, height: 200 + dimensions.length * 400, selectedDimensionId:associated, associations: dimensions.filter(d=>!d.generation).flatMap(d=>[...d.claims.map(r=>({kind:'claim' as const,id:r.id,dimensionId:d.id})),...d.relationships.map(r=>({kind:'relationship' as const,id:r.id,dimensionId:d.id}))]) }} />
-      <aside aria-label="Dimension and research inspector">
+      <RelationshipsMap key={project.id} readOnly={stage!=='Relationships'} stage={stage} onViewChange={onViewChange} focusRequest={focusRequest} exploration={exploration.hasContent || stage==='Explore' ? {content:exploration.content,bounds:exploration.bounds,focus:exploration.focus} : undefined} project={project} selection={selection} onSelect={s => { setSelection(s); setEditing(null); setAssociated(null); }}
+        onMove={(node,mapPosition)=>attempt(()=>{if(node.kind==='claim')store.claims.update(node.id as Claim['id'],{mapPosition});else store.relationships.update(node.id as Relationship['id'],{mapPosition});})} onReorganise={positions=>attempt(()=>store.setClaimMapPositions([...positions].map(([id,position])=>({id:id as Claim['id'],position}))))} extension={{ content: cards, height: 200 + dimensions.length * 400, selectedDimensionId:associated, associations: dimensions.filter(d=>!d.generation).flatMap(d=>[...d.claims.map(r=>({kind:'claim' as const,id:r.id,dimensionId:d.id})),...d.relationships.map(r=>({kind:'relationship' as const,id:r.id,dimensionId:d.id}))]) }} />
+      <aside aria-label={stage==='Relationships'?'Evidence inspector':'Dimension and research inspector'}>
+        {exploration.editor}
         {editing && <DimensionEditor key={editing} project={project} dimension={dimension} onClose={() => setEditing(null)} onRemove={() => attempt(() => { if (dimension) store.dimensions.remove(dimension.id); setEditing(null); })}
           onSave={content => attempt(() => {
             if (dimension) store.dimensions.update(dimension.id, content);
@@ -157,7 +200,7 @@ export function DimensionsWorkspace({mode='live'}:{mode?:'live'|'demo'}) {
             }
             setEditing(null);
           })} />}
-        {inspected && <section><h3>{inspected.name}</h3><p>Associated findings</p><p>Associations explain relevance, not proof or causality.</p>
+        {inspected && <section><h3>{inspected.name}</h3>{inspected.archivedAt && <p>This dimension was removed. Its saved findings remain available.</p>}<p>Associated findings</p><p>Associations explain relevance, not proof or causality.</p>
           {inspected.origin!=='researcher'&&<p>{inspected.grounding==='inferred'?'AI inference':'Research-supported consideration'} · {inspected.review.state.replaceAll('_',' ')}</p>}
           {inspected.rationale&&<p>{inspected.rationale}</p>}
           {inspected.limitations.map((text,i)=><p key={i}>{text}</p>)}
@@ -174,7 +217,7 @@ export function DimensionsWorkspace({mode='live'}:{mode?:'live'|'demo'}) {
           }))}
         </section>}
         {selected && !editing && <RelationshipInspector key={selected.id} project={project} item={selected} onClose={() => setSelection(null)} onError={setError} />}
-        {!editing && !inspected && !selected && <p>Pan right to Dimensions. Add a dimension or select a finding to inspect its research.</p>}
+        {!editing && !inspected && !selected && <p>{stage==='Explore'?'Add an idea or select one to edit, connect, or branch. Open a confirmed Dimension to inspect its findings.':stage==='Relationships'?'Select a claim or relationship to inspect its supporting research.':'Pan right to Dimensions. Add a dimension or select a finding to inspect its research.'}</p>}
       </aside>
     </div>
   </section>;

@@ -6,7 +6,7 @@ import { RelationshipsMap } from './RelationshipsMap';
 import { RelationshipInspector } from './RelationshipInspector';
 import { applyRelationships, prepareRelationships } from './analysis';
 
-export function RelationshipsWorkspace({mode='live'}:{mode?:'demo'|'live'}) {
+export function RelationshipsWorkspace({mode='live',controlsOnly=false}:{mode?:'demo'|'live';controlsOnly?:boolean}) {
   const { project, errorOperation } = useProject();
   const store = useProjectStore();
   const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [message, setMessage] = useState('');
@@ -34,7 +34,7 @@ export function RelationshipsWorkspace({mode='live'}:{mode?:'demo'|'live'}) {
     finally { setBusy(false); }
   }
   return <section className="relationships-workspace"><p>Inspect interpretations and connections grounded in your Live AI research. All suggestions need your review.</p><button className="project-button" disabled={busy} onClick={() => void analyse()}>{busy ? 'Analysing…' : 'Analyse relationships'}</button><p>New analysis adds proposals. Only passages in active, non-rejected research categories are included.</p>{message && <p role="status">{message}</p>}{error && <p role="alert">{error}</p>}
-    <div className="relationships-layout relationships-map-layout"><RelationshipsMap project={project} selection={selection} onReorganise={positions => store.setClaimMapPositions([...positions].map(([id,position])=>({id:id as Claim['id'],position})))} onSelect={setSelection} onMove={(node, mapPosition) => { if (node.kind === 'claim') store.claims.update(node.id as Claim['id'], {mapPosition}); else store.relationships.update(node.id as Relationship['id'], {mapPosition}); }} />
-    <aside aria-label="Evidence inspector">{selected ? <RelationshipInspector key={selected.id} project={project} item={selected} onClose={() => setSelection(null)} onError={setError} /> : <p>Select a claim to explore its connections. Select a connection to understand why DAVE proposed it.</p>}</aside></div>
+    {!controlsOnly && <div className="relationships-layout relationships-map-layout"><RelationshipsMap project={project} selection={selection} onReorganise={positions => store.setClaimMapPositions([...positions].map(([id,position])=>({id:id as Claim['id'],position})))} onSelect={setSelection} onMove={(node, mapPosition) => { if (node.kind === 'claim') store.claims.update(node.id as Claim['id'], {mapPosition}); else store.relationships.update(node.id as Relationship['id'], {mapPosition}); }} />
+    <aside aria-label="Evidence inspector">{selected ? <RelationshipInspector key={selected.id} project={project} item={selected} onClose={() => setSelection(null)} onError={setError} /> : <p>Select a claim to explore its connections. Select a connection to understand why DAVE proposed it.</p>}</aside></div>}
   </section>;
 }

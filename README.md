@@ -421,3 +421,170 @@ review/edit/reject, source inspection, persistence, stale responses and API fail
 The live endpoint was also checked with synthetic research without modifying the
 user's project. Research/Relationships generation and later workflow stages are
 unchanged.
+
+### Exploration on the progressive Design Map
+
+Research, Relationships, Dimensions and Explore now use one mounted
+`RelationshipsMap` and its existing world transform. Research offers Show Design
+Map alongside intake. Stage navigation focuses an area and restores its previous
+pan/zoom; focus controls keep the rest of the map accessible. Research category
+regions, claims, relationships, dimension cards, tuning and findings inspectors
+are reused. Relationship analysis and research AI logic are unchanged.
+
+Select dimensions with Use for exploration, choose their positions, then click
+Confirm tuning. Confirmation validates active, reviewed dimensions and their
+current tuning references and labels. An undecided position needs a human choice. If a Dimension was edited after
+tuning, confirmation shows a readable review of the current labels and preserves
+all numerical values. Explicit confirmation advances only the saved revision
+references; cancellation leaves the project untouched. Concurrent edits invalidate
+the review and require another check. It saves an immutable session
+with dimension and position revision references, titles, endpoint/middle labels,
+chosen labels and meanings. Confirming again appends a new session, retaining old
+sessions and all ideas. Changes to dimensions never silently update a snapshot.
+
+Exploration extends the same canvas to the right of Dimensions. Add idea creates
+a text card; select it to edit, branch into a new linked idea, connect it to an
+existing idea with an arrow, or delete it. Select an arrow to delete a connection.
+New cards avoid occupied space; dropped cards move to a nearby free slot if needed.
+Arrows express designer-created relationships, not evidence of causality. The
+confirmed context links to the existing dimension card and findings inspector;
+it adds no second set of tuning controls. Earlier-context ideas remain linked to
+the session in which they were created.
+
+The shared store and IndexedDB save sessions, cards, positions, connections and
+per-stage map viewports. Content edits retain revision history; movement does not
+create content revisions. Deleting archives a card and its incident connections,
+retaining their IDs and history. There is no archive restoration UI in this
+increment. Unfinished idea drafts and selections remain in memory across stage
+navigation and reset on refresh. Demo keeps its existing isolated temporary session.
+
+Optional version-1 fields preserve older saved projects. Ideas from the original
+independent whiteboard retain their saved content, IDs, history and positions;
+a read adapter places them in the Exploration area. Moving one stores its new
+position in shared map coordinates. Older ideas are not retroactively assigned
+a confirmed session. They remain editable even before new confirmation.
+
+Fit map maintains a readable minimum zoom and can crop a very large map; pan or
+use Show research / Show dimensions / Show exploration to reach other areas.
+AI-guided questions are described below. Design Directions remain unimplemented.
+
+`tests/exploration.browser.test.mjs` covers confirmation, a single surviving
+canvas, editing, branching, arrow deduplication/deletion, card deletion, scaled
+dragging, panning, viewport restoration, stage navigation, reload persistence,
+stable snapshots, explicit reconfirmation, legacy data and no AI requests.
+`tests/exploration.test.ts` checks the underlying store and layout behavior.
+
+
+### AI-guided Exploration
+
+After Confirm tuning, Start exploring explicitly requests one question. Nothing
+is generated on entry. Select any card and use Ask DAVE for one follow-up. A DAVE
+question has a subtle pastel treatment, Why this question?, Skip / Revisit, and
+Different question. Alternatives append a sibling question and mark the previous
+one skipped; they preserve its responses and history. Manual contributions remain
+available during generation and after failures. No chat, design solutions, branch
+ranking, automatic questions or Directions are added.
+
+Respond creates a linked contribution. The editor supports ideas, written notes,
+and sketches/images. Branch idea creates another linked alternative. Own
+contributions remain editable, movable and deletable. Question movement does not
+change its content revision; skipping records a designer decision while retaining
+DAVE authorship. New cards are brought into view on the same canvas.
+
+The separate `/api/exploration/question` task uses the existing server-only
+OPENAI_API_KEY and Responses structured output with `store:false`. It validates
+one short, open-ended question and all returned reference IDs on the server and
+again against the current project before publishing. Loading, unavailable server,
+rate limit, refusal, invalid references, repeated output and stale input produce
+an understandable error and an explicit retry, never a placeholder question.
+
+Context uses the selected card's original confirmed session, project name/brief,
+preceding branch cards, and relevant research attached to those saved dimension
+revisions. Only accepted/partially accepted claims and relationships are included.
+Direct evidence and category/source passages retain original revisions and source
+locations. When dimensions have no associations, a bounded word-overlap fallback
+selects reviewed findings. Missing research remains an explicit limitation rather
+than an invented finding. The explanation lists the confirmed settings, considered
+findings, selected links, supporting excerpts, original-file access, purpose,
+grounding/inference and limitations.
+
+Each new branch card records its explicit parent reference. Follow-ups walk that
+creation branch while its connection remains active; older cards use a unique
+incoming arrow. Unrelated sibling responses never enter the request. Ambiguous
+legacy merges and loops require selecting a clearer branch. Previous branch
+questions discourage rephrasing; normalized fingerprints reject exact repeats
+across the project without sending sibling responses. Distinct paraphrases may
+still require designer judgment. A pending result is rejected if relevant content
+changes; movement alone does not invalidate it.
+
+Images (PNG/JPEG/WebP/GIF/AVIF, up to 10 MB and 25 million pixels) are saved as local
+blobs using the existing persistence. Cards show thumbnails and an image inspection
+view. No image bytes or asset IDs are sent to OpenAI; Ask DAVE uses only the written
+caption and states that it cannot see the image. Visual image understanding is not
+implemented. Context is bounded to 24 ancestor cards, 16 confirmed settings,
+12 claims, 8 relationships, 24 evidence excerpts and 12 source passages. Long
+branches need a narrower selection; unavailable or oversized research is omitted
+with limitations. Question quality remains a model suggestion for human review.
+
+Implementation files for this increment:
+- `server/ai/exploration.mjs`, `server/prompts/exploration.mjs`, `server/index.mjs`
+- `src/features/exploration/questions.ts`, `questionContract.mjs`, `questionContract.d.mts`
+- `src/features/exploration/ExplorationWorkspace.tsx`, `QuestionInspector.tsx`, `SketchImage.tsx`, `layout.ts`, `exploration.css`
+- `src/model/types.ts`, `src/state/projectStore.ts`
+- `src/features/dimensions/DimensionsWorkspace.tsx`, `src/features/relationships/RelationshipsMap.tsx` (shared map focus and existing project context)
+- `tests/explorationQuestions.test.ts`, `tests/explorationQuestions.browser.test.mjs`, `tests/explorationServer.test.mjs`, `tests/fixtures/exploration.mjs`
+
+Verification includes initial/follow-up questions, branch isolation, confirmed
+context, provenance, duplicate rejection, image persistence and inspection,
+question movement, alternatives, stale responses, API failures and all existing
+workflow regressions. Live OpenAI checks use synthetic research only and do not
+change the user's saved project.
+
+
+### Tuning branches on the Design Map
+
+Confirm tuning creates a new numbered exploration branch from the existing
+immutable session snapshot. The same action is available at the bottom of the
+Dimensions panel. Edited dimension wording still uses the explicit review step;
+no slider is silently retuned. Existing sessions display as earlier numbered
+branches without rewriting their snapshots or entity IDs.
+
+Each compact branch node connects to the Dimensions panel. Select its name to
+activate it; Rename edits its name and the chevron expands/collapses all saved
+dimension titles, selected positions and meaningful labels. Expanded settings
+link back to the existing dimension/findings inspector. The active branch has a
+subtle highlight and is also selectable in the Active branch control. Names,
+positions, expansion state, active selection and content persist in IndexedDB.
+Branch name history is separate from the immutable snapshot revision.
+
+Selected-branch actions reuse Start exploring / Ask DAVE, Add idea, Add note and
+Add sketch. Root contributions are connected visually to their tuning branch;
+responses and idea sub-branches keep the existing node-to-node connections. A
+tuning branch is a confirmed configuration; Branch idea is an alternative within
+that configuration. Selecting a card also selects its tuning branch. New links
+between different tuning branches are rejected to avoid mixing their contexts.
+
+Confirm tuning is disabled when the selected tuning matches an existing branch,
+with a hint naming that branch. Changing to a new configuration enables it again;
+returning to any saved configuration disables it. Existing saved branches are preserved. New
+branch nodes are placed vertically below existing occupied space, reserving room
+for expansion. Contribution cards remain draggable and new placements avoid
+existing cards. Older saved card positions are retained in storage with a view
+adapter that leaves space for the branch column. Existing layouts are not
+otherwise rearranged; growing an older exploration can extend below newer ones.
+
+The AI prompt, schema and backend are unchanged. Context selection and placement
+now pin root requests to the requested branch, even if the active branch changes
+while waiting. Follow-ups retain the selected card's branch snapshot, never the
+current sliders. Pending manual drafts retain their original branch as well.
+
+Try: confirm tuning; rename and expand Branch 1; add an idea; change the sliders
+and confirm again; switch back to Branch 1 and ask DAVE; refresh. Branch 1 should
+still show its original settings and content, while Branch 2 retains the newer
+configuration. Unchanged sliders should leave Confirm tuning disabled and name
+Branch 2. Returning to Branch 1’s tuning should disable it and name Branch 1.
+
+New verification: `tests/explorationBranches.test.ts` and
+`tests/explorationBranches.browser.test.mjs` cover snapshot independence, branch
+presentation, selection, duplicate prevention, associated content, AI context and
+refresh/navigation persistence. Existing workflow regression tests remain in place.

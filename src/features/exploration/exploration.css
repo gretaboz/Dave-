@@ -1,0 +1,65 @@
+/* Exploration entities share the existing relationship-map-world transform. */
+.map-exploration-area { position: absolute; border: 1px solid var(--color-border); border-radius: 12px; background: #f8fafb; pointer-events: none; }
+.map-exploration-area header { width: 610px; max-height: 160px; overflow: auto; padding: 18px 24px; pointer-events: auto; }
+.map-exploration-area h3 { margin: 0; }
+.map-exploration-area p { font-size: 13px; color: var(--color-text-muted); margin: 8px 0; }
+.exploration-context { font-size: 13px; }
+.exploration-context summary { cursor: pointer; }
+.exploration-context ul { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; list-style: none; }
+.exploration-context li { padding: 6px 10px; background: #eef1eb; border-radius: 5px; max-width: 270px; }
+.exploration-context li span, .exploration-context li small { display: block; margin-top: 4px; }
+.exploration-toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 8px; }
+.exploration-toolbar button { background: white; border: 1px solid var(--color-border); border-radius: 5px; padding: 7px 10px; color: inherit; cursor: pointer; font: inherit; }
+.exploration-toolbar button:disabled { opacity: .45; cursor: default; }
+.exploration-toolbar button[aria-pressed=true] { background: #e8edf3; }
+.exploration-help { color: var(--color-text-muted); font-size: 13px; }
+.exploration-arrows { position: absolute; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
+.exploration-arrows line { stroke: #858c96; stroke-width: 1.5; }
+.exploration-arrows text { fill: #646970; font-size: 12px; }
+.exploration-arrows .exploration-arrow-hit { stroke: transparent; stroke-width: 18; pointer-events: stroke; cursor: pointer; }
+.exploration-arrows g[data-selected=true] > line:first-of-type { stroke: #52789c; stroke-width: 3; }
+.exploration-card { position: absolute; width: 240px; height: 180px; background: white; border: 1px solid var(--color-border); border-top: 5px solid #dfe5d9; border-radius: 7px; padding: 12px; box-shadow: 0 2px 7px #292b2f09; cursor: grab; }
+.exploration-card:nth-of-type(3n + 2) { border-top-color: #e4dce9; }
+.exploration-card:nth-of-type(3n) { border-top-color: #dce6ef; }
+.exploration-card.is-selected { outline: 2px solid #8b9eaf; outline-offset: 2px; }
+.exploration-card button { font: inherit; cursor: pointer; }
+.exploration-card .exploration-card-title { display: block; max-width: 100%; padding: 0; border: 0; text-align: left; background: transparent; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.exploration-card p { white-space: pre-wrap; overflow: auto; overflow-wrap: anywhere; height: 78px; margin: 9px 0; font-size: 14px; }
+.exploration-card .exploration-card-edit { padding: 0; font-size: 12px; border: 0; background: none; color: var(--color-text-muted); }
+.exploration-editor input, .exploration-editor textarea { width: 100%; font: inherit; padding: 8px; border: 1px solid var(--color-border); border-radius: 4px; }
+.exploration-editor > div { display: flex; gap: 8px; }
+.exploration-card { height: 240px; }
+.exploration-question { border-top-color: #bdb1d3; background: #fcfaff; }
+.exploration-question.is-skipped { opacity: .65; }
+.exploration-question p { height: 102px; overflow-y: auto; }
+.exploration-question > small { color: var(--color-text-muted); font-size: 11px; }
+.exploration-question-actions { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 7px; }
+.exploration-question-actions button { border: 0; background: none; padding: 0; font-size: 11px; color: #665178; }
+.exploration-card:has(.exploration-thumbnail) p { height: 38px; margin: 4px 0; }
+.exploration-image-button { display: block; padding: 0; border: 0; background: none; margin-top: 8px; width: 100%; }
+.exploration-thumbnail { display: block; width: 100%; height: 92px; object-fit: contain; background: #f5f6f7; }
+.exploration-image-overlay { position: fixed; inset: 4vh 4vw; z-index: 1000; border: 1px solid var(--color-border); border-radius: 8px; padding: 16px; background: white; box-shadow: 0 0 0 5vmax #292b2f60; display: flex; flex-direction: column; gap: 12px; }
+.exploration-image-overlay img { width: 100%; height: calc(100% - 48px); object-fit: contain; }
+.exploration-image-overlay button { align-self: flex-end; }
+
+.exploration-branch { position: absolute; width: 260px; box-sizing: border-box; background: #fff; border: 1px solid #d7dfe6; border-radius: 26px; padding: 13px 16px; font-size: 13px; box-shadow: 0 2px 6px #292b2f06; }
+.exploration-branch.is-expanded { border-radius: 14px; }
+.exploration-branch.is-active { border-color: #99afc0; background: #f4f8fb; box-shadow: 0 0 0 2px #dbe7ef; }
+.exploration-branch-heading { display: flex; gap: 8px; align-items: center; }
+.exploration-branch button { border: 0; background: transparent; cursor: pointer; color: inherit; font: inherit; padding: 2px 0; }
+.exploration-branch-name { flex: 1; min-width: 0; font-weight: 600 !important; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exploration-branch .exploration-branch-rename { font-size: 10px; color: var(--color-text-muted); }
+.exploration-branch .exploration-branch-toggle { font-size: 20px; padding: 0 3px; }
+.exploration-branch > small { display: block; margin-top: 5px; color: var(--color-text-muted); font-size: 11px; }
+.exploration-branch-settings { max-height: 300px; overflow: auto; margin-top: 8px; }
+.exploration-branch-settings ul { padding: 0; list-style: none; margin: 0; }
+.exploration-branch-settings li { border-top: 1px solid #e0e6eb; padding: 9px 0; }
+.exploration-branch-settings li span { display: block; margin-top: 4px; color: #59646d; }
+.exploration-branch-heading form { min-width: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.exploration-branch-heading input { width: 100%; min-width: 0; font: inherit; }
+.exploration-active-branch { display: flex; gap: 10px; align-items: center; font-size: 14px; margin-top: 12px; }
+.exploration-active-branch select { border: 1px solid var(--color-border); border-radius: 5px; background: white; padding: 6px 10px; font: inherit; max-width: 320px; }
+.exploration-branch-change { position: absolute; width: 260px; font-size: 11px; color: #737d85; margin: 0; pointer-events: none; }
+.dimension-confirm-map { margin-top: 16px; width: 100%; }
+.map-exploration-area { background: transparent; border: 0; }
+.exploration-branch .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }

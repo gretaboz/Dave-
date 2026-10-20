@@ -614,3 +614,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .dimension-proposal-positions dt { font-weight: 600; }
 .dimension-proposal-positions dd { margin: 6px 0 14px; }
 .dimension-proposals[aria-label] { max-height: 340px; overflow-y: auto; padding-right: 8px; }
+
+.dimension-confirmation { max-width: 760px; margin: 16px 0; padding: 18px; background: #f7f9fb; border: 1px solid var(--color-border); border-radius: 8px; }
+.dimension-confirmation h3 { margin-top: 0; }
+.dimension-confirmation ul { list-style: none; padding: 0; }
+.dimension-confirmation li { padding: 10px 0; border-bottom: 1px solid var(--color-border); }
+.dimension-confirmation li span, .dimension-confirmation li small { display: block; margin-top: 4px; }
+.dimension-confirmation li small { color: var(--color-text-muted); }
