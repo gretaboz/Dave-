@@ -31,12 +31,22 @@ export function validateQuestionInput(input) {
  if(JSON.stringify(input).length>100000)fail('The Exploration context is too large.');
  return input;
 }
+// Alternative questions use the original parent context, never the question being replaced.
+export function questionStrategy(input) {
+ const path=input.request.mode==='initial'?[]:input.request.mode==='alternative'
+  ?input.branch.slice(0,input.branch.findIndex(n=>n.id===input.request.selectedId))
+  :input.branch;
+ const contributions=path.filter(n=>n.kind!=='question'&&n.origin!=='dave'&&n.text.trim());
+ const latestContribution=contributions.at(-1)??null;
+ return {allowedPurposes:latestContribution?['open_possibilities','explore_alternatives','challenge_assumptions']:['open_possibilities'],preferredPurpose:contributions.length>1?'challenge_assumptions':latestContribution?'explore_alternatives':'open_possibilities',latestContribution};
+}
 export function validateQuestionOutput(output,input) {
  validateQuestionInput(input);
- object(output,['question','purpose','grounding','positionIds','claimIds','relationshipIds','evidenceIds','categoryIds','passageIds','limitations','model','promptVersion']);
+ object(output,['question','questionPurpose','purpose','grounding','positionIds','claimIds','relationshipIds','evidenceIds','categoryIds','passageIds','limitations','model','promptVersion']);
  text(output.question,240);text(output.purpose,300);
+ if(output.questionPurpose!==undefined&&!questionStrategy(input).allowedPurposes.includes(output.questionPurpose))fail('DAVE chose a question purpose before a designer idea was available. Retry.');
  if([...input.settings.map(s=>s.position),...input.settings.map(s=>s.dimension),...input.claims,...input.relationships,...input.evidence,...input.categories,...input.branch].some(r=>r.id.length>=6&&(output.question.includes(r.id)||output.purpose.includes(r.id))))fail('DAVE included internal references in visible text. Request another question.');
- if(!output.purpose.trim()||!output.question.endsWith('?')||(output.question.match(/\?/g)||[]).length!==1||output.question.split(/\s+/).length>36||!/^(what|how|where|which|when|why|whose|in what|under what)\b/i.test(output.question))fail('DAVE returned a question that needs to be shorter and open-ended. Retry.');
+ if(!output.purpose.trim()||!output.question.endsWith('?')||(output.question.match(/\?/g)||[]).length!==1||output.question.split(/\s+/).length>36||!(/^(what|how|where|which|when|why|whose|in what|under what)\b/i.test(output.question)|| (output.questionPurpose==='challenge_assumptions'&&/^would\b.+\bif\b/i.test(output.question))))fail('DAVE returned a question that needs to be shorter and open-ended. Retry.');
  if(!['research_grounded','inferred'].includes(output.grounding))fail('Missing question grounding.');
  for(const [key,items] of [['positionIds',input.settings.map(s=>({id:s.position.id}))],['claimIds',input.claims],['relationshipIds',input.relationships],['evidenceIds',input.evidence],['categoryIds',input.categories],['passageIds',input.passages]]){
   list(output[key]);if(new Set(output[key]).size!==output[key].length||output[key].some(id=>typeof id!=='string'||!items.some(x=>x.id===id)))fail('DAVE returned an unavailable research reference. Nothing was added.');

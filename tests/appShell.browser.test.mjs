@@ -258,3 +258,46 @@ test('Opening manual Dimensions preserves saved research, reviews and dimensions
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });
+
+test('New Project starts blank and projects retain independent content across switching and reload', async () => {
+  const { context, page, errors } = await openShell();
+  try {
+    await page.goto(server.resolvedUrls.local[0]);
+    await page.getByRole('button', { name: 'Live AI', exact: true }).click();
+    await waitForText(page, 'status', 'No project yet.');
+    await page.getByLabel('Project name', { exact: true }).fill('Original project');
+    await page.getByRole('button', { name: 'Create project', exact: true }).click();
+    await waitForText(page, 'status', 'Saved locally.');
+    const original = await page.evaluate(async () => {
+      const { projectStore: store } = await import('/src/state/projectStore.ts');
+      store.categories.add({ name: 'Original category', order: 0 });
+      return store.getProject();
+    });
+    await waitForText(page, 'status', 'Saved locally.');
+    await page.getByRole('button', { name: 'Explore', exact: true }).click();
+    await page.getByRole('button', { name: 'New Project', exact: true }).click();
+    await page.getByLabel('Project name', { exact: true }).fill('Second project');
+    await page.getByRole('button', { name: 'Create project', exact: true }).click();
+    await waitForText(page, 'status', 'Saved locally.');
+    const second = await currentProject(page);
+    assert.notEqual(second.id, original.id);
+    assert.equal(second.name, 'Second project');
+    assert.equal(second.context, '');
+    for (const key of ['sources', 'categories', 'evidence', 'claims', 'relationships', 'dimensions',
+      'dimensionPositions', 'explorationNodes', 'explorationConnections', 'directions']) assert.deepEqual(second[key], []);
+    assert.equal(await page.getByRole('button', { name: 'Research', exact: true }).getAttribute('aria-current'), 'step');
+    await page.getByLabel('Project', { exact: true }).selectOption(original.id);
+    await waitForText(page, 'status', 'Saved locally.');
+    assert.deepEqual(await currentProject(page), original);
+    await page.reload();
+    await waitForText(page, 'status', 'Saved locally.');
+    assert.deepEqual(await currentProject(page), original);
+    await page.getByLabel('Project', { exact: true }).selectOption(second.id);
+    await waitForText(page, 'status', 'Saved locally.');
+    assert.deepEqual(await currentProject(page), second);
+    await page.getByRole('button', { name: 'New Project', exact: true }).click();
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    assert.deepEqual(await currentProject(page), second);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});

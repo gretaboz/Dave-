@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ProjectProvider } from '../../state/ProjectProvider';
+import { ProjectProvider, useProject } from '../../state/ProjectProvider';
 import type { ReactNode } from 'react';
 import { ResearchWorkspace } from './ResearchWorkspace';
 import { createDemoSession } from './demoResearch';
@@ -22,5 +22,10 @@ export function ResearchModes({ mode, onModeChange }: { mode: 'demo' | 'live'; o
 /** The selected project is shared by every workflow stage, not just Research. */
 export function ResearchProjectScope({mode,children}:{mode:'demo'|'live';children:ReactNode}) {
  const [demoSession]=useState(createDemoSession);
- return <ProjectProvider session={mode==='demo'?demoSession:undefined}><div key={mode}>{children}</div></ProjectProvider>;
+ return <ProjectProvider session={mode==='demo'?demoSession:undefined}><ProjectContentScope key={mode}>{children}</ProjectContentScope></ProjectProvider>;
+}
+
+function ProjectContentScope({ children }: { children: ReactNode }) {
+  const { project } = useProject();
+  return <div key={project?.id ?? 'empty'}>{children}</div>;
 }

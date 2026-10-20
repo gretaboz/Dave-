@@ -38,7 +38,7 @@ export function App() {
       </nav>
       <ResearchProjectScope mode={researchMode}><main className={`workspace${activeStage === 'Research' ? ' workspace-research' : ''}`} aria-label="Design workspace">
         {activeStage !== 'Research' && <h2 className="workspace-title">{activeStage}</h2>}
-        <ProjectWorkspace />
+        <ProjectWorkspace onProjectOpened={() => { setActiveStage('Research'); setShowResearchMap(false); }} />
         <div hidden={activeStage !== 'Relationships'}><RelationshipsWorkspace mode={researchMode} controlsOnly /></div>
         <div hidden={activeStage !== 'Research'}><ResearchModes mode={researchMode} onModeChange={setResearchMode} />
           <button className="research-text-button" onClick={()=>setShowResearchMap(v=>!v)}>{showResearchMap?'Hide Design Map':'Show Design Map'}</button>

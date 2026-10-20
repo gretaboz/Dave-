@@ -254,6 +254,7 @@ export interface ExplorationNodeContent {
   branchParent?: EntityReference<'exploration_node'>;
   questionState?: 'open' | 'skipped';
   question?: {
+    questionPurpose?: 'open_possibilities' | 'explore_alternatives' | 'challenge_assumptions';
     purpose: string; grounding: 'research_grounded' | 'inferred';
     categories: EntityReference<'research_category'>[];
     researchPassages?: {category: EntityReference<'research_category'>; passage: ResearchPassage}[];

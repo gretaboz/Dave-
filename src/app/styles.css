@@ -621,3 +621,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .dimension-confirmation li { padding: 10px 0; border-bottom: 1px solid var(--color-border); }
 .dimension-confirmation li span, .dimension-confirmation li small { display: block; margin-top: 4px; }
 .dimension-confirmation li small { color: var(--color-text-muted); }
+
+.project-controls { display: flex; align-items: center; gap: .75rem; margin-bottom: .75rem; flex-wrap: wrap; }
+.project-controls select { max-width: 24rem; padding: .5rem; font: inherit; }

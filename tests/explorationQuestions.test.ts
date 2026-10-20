@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
 import {createProjectStore} from '../src/state/projectStore';
+import {questionStrategy} from '../src/features/exploration/questionContract.mjs';
 import {prepareQuestion,applyQuestion} from '../src/features/exploration/questions';
 import type {QuestionInput} from '../src/features/exploration/questionContract.mjs';
 function setup(){
@@ -11,7 +12,7 @@ function setup(){
  const d=store.dimensions.add({name:'Cleaning',explanation:'Cleaning effort',lowLabel:'Quick rinse',midLabel:'Easy cleaning',highLabel:'Deep cleaning',claims:[{id:claim.id,revision:1}],relationships:[],limitations:[],review:{state:'accepted'}});
  const p=store.setDimensionPosition({dimension:{id:d.id,revision:1},selected:true,value:.5});store.confirmExploration();return {store,p};
 }
-const output=(i:QuestionInput,question='What makes cleaning the press difficult with limited hand strength?')=>({question,purpose:'Explore cleanup effort.',grounding:'research_grounded',positionIds:[i.settings[0].position.id],claimIds:[i.claims[0].id],relationshipIds:[],evidenceIds:[],categoryIds:[],passageIds:[],limitations:[],model:'test',promptVersion:'test'});
+const output=(i:QuestionInput,question='What makes cleaning the press difficult with limited hand strength?')=>({question,questionPurpose:questionStrategy(i).preferredPurpose,purpose:'Explore cleanup effort.',grounding:'research_grounded',positionIds:[i.settings[0].position.id],claimIds:[i.claims[0].id],relationshipIds:[],evidenceIds:[],categoryIds:[],passageIds:[],limitations:[],model:'test',promptVersion:'test'});
 test('questions retain provenance, confirmed tuning and only the selected branch; no images or sibling responses are sent',()=>{
  const {store,p}=setup();let project=store.getProject()!;const input=prepareQuestion(project);const result=applyQuestion(project,input,output(input));store.restoreProject(result.project);const q=result.node;
  const idea=(title:string)=>store.explorationNodes.add({title,content:{type:'idea',text:title},branchParent:{id:q.id,revision:q.revision},position:{x:1800,y:220},references:{evidence:[],claims:[],relationships:[],dimensions:[]},dimensionPositions:q.dimensionPositions,explorationSession:q.explorationSession,limitations:[]});
@@ -19,7 +20,7 @@ test('questions retain provenance, confirmed tuning and only the selected branch
  store.explorationConnections.add({fromNodeId:q.id,toNodeId:a.id,directional:true});store.explorationConnections.add({fromNodeId:q.id,toNodeId:b.id,directional:true});
  store.setDimensionPosition({...p,value:1});project=store.getProject()!;
  const follow=prepareQuestion(project,a.id,'followup');assert.equal(follow.settings[0].value,.5);assert.deepEqual(follow.branch.map(n=>n.id),[q.id,a.id]);assert.ok(!JSON.stringify(follow).includes(b.content.text));
- const next=applyQuestion(project,follow,output(follow,'How would someone clean that surface using only one hand?'));assert.equal(next.node.branchParent?.id,a.id);assert.equal(next.node.origin,'dave');assert.equal(next.node.question?.considered.claims.length,1);assert.equal(next.project.explorationNodes.length,4);
+ const next=applyQuestion(project,follow,output(follow,'How would someone clean that surface using only one hand?'));assert.equal(next.node.branchParent?.id,a.id);assert.equal(next.node.origin,'dave');assert.equal(next.node.question?.questionPurpose,'explore_alternatives');assert.equal(q.question?.questionPurpose,'open_possibilities');assert.equal(next.node.question?.considered.claims.length,1);assert.equal(next.project.explorationNodes.length,4);
 });
 test('stale edits, fabricated references and duplicate questions leave project untouched; movements preserve pending context',()=>{
  const {store}=setup();const input=prepareQuestion(store.getProject()!);store.updateProject({context:'Changed research context'});const before=store.getProject();assert.throws(()=>applyQuestion(before!,input,output(input)),/changed/);assert.deepEqual(store.getProject(),before);
@@ -45,4 +46,12 @@ test('source passages remain original references and skipped questions retain DA
  const input=prepareQuestion(store.getProject()!);assert.equal(input.passages.length,1);assert.equal(input.passages[0].text,'Cleanup is hard with one hand.');
  const generated=applyQuestion(store.getProject()!,input,{question:'What changes when this press must be cleaned with one hand?',purpose:'Explore one-handed cleanup.',grounding:'research_grounded',positionIds:[p.id],claimIds:[],relationshipIds:[],evidenceIds:[],categoryIds:[category.id],passageIds:[input.passages[0].id],limitations:[],model:'test',promptVersion:'test'});
  assert.deepEqual(generated.node.question?.researchPassages?.[0].passage,passage);store.restoreProject(generated.project);store.explorationNodes.update(generated.node.id,{questionState:'skipped'});assert.equal(store.getProject()!.explorationNodes.at(-1)!.origin,'dave');
+});
+
+test('proposed claims are available to exploration without being represented as verified findings',()=>{
+ const {store}=setup();const claim=store.getProject()!.claims[0];
+ store.claims.update(claim.id,{review:{state:'proposed'}});
+ const input=prepareQuestion(store.getProject()!);
+ assert.equal(input.claims.length,1);
+ assert.ok(input.claims[0].limitations.some(l=>l.includes('not been independently verified')));
 });

@@ -588,3 +588,70 @@ New verification: `tests/explorationBranches.test.ts` and
 `tests/explorationBranches.browser.test.mjs` cover snapshot independence, branch
 presentation, selection, duplicate prevention, associated content, AI context and
 refresh/navigation persistence. Existing workflow regression tests remain in place.
+
+
+### Editable AI content (current workflow)
+
+Research categories, claims, relationships and dimensions are available immediately.
+Edit or delete them directly; evidence inspection remains available on demand.
+There are no per-item Accept/Reject controls. Existing review fields and their
+history remain readable in saved version-1 projects; generation never marks
+interpretations accepted automatically. Earlier rejected/archived dimensions
+remain excluded from active tuning.
+
+Dimension generation and exploration use available interpretations with their
+source references and limitations, independent of approval. Category approval
+is never a prerequisite for tuning. Dimensions without direct supporting source
+references are labelled AI inference / Evidence not verified. Fabricated references
+still fail validation. Research-supported means source-motivated, not verified truth.
+
+Confirm tuning remains an explicit designer action that creates a branch with an
+immutable snapshot. It uses current dimension wording while preserving chosen
+values, without an additional approval panel. Creating further exploration
+branches and selecting final design directions remain explicit human decisions.
+Deletion archives interpretations so earlier provenance remains available.
+
+
+Dimension generation now asks the model to select request-local passage IDs rather
+than reconstructing category IDs, revision numbers and passage indices. The server
+resolves each ID against the supplied catalogue and returns the original references
+for persistence. Repeated valid passage references are deduplicated; unknown
+references still reject the batch without guessing evidence or changing the project.
+
+
+### Workshop question quality
+
+Exploration prompt version `exploration-2` uses three purposes: open possibilities
+at a tuning branch's start, explore alternatives after a designer contribution,
+and challenge assumptions while developing a concrete idea. The server derives
+the allowed purposes and latest human contribution from the selected path.
+Replacing a question uses its original parent context. Confirmed snapshots,
+research revision references, question cards and map connections are retained.
+Question purpose is optional in stored data so earlier projects remain readable.
+
+The prompt uses everyday workshop language, concrete activities and examples,
+with a 28-word ceiling. It explicitly rules out predicting satisfaction, academic
+analysis, unchosen solutions and challenges that merely remove part of an idea.
+Before returning, the model reviews six criteria: immediate understanding, project
+relevance, concrete activity, multiple answers, designer control and stage fit.
+The server rejects failed checks, unsupported purposes, academic wording,
+unavailable references and repeats, then allows one revision within the existing
+60-second deadline. Assumption challenges are always labelled inferred, with a stated limitation and
+any motivating research links retained. Failure adds no card. The checklist is model self-review,
+not proof of design quality; designers retain judgment over every question.
+
+Only previous question texts from the same tuning branch are included to discourage
+repetition; sibling designer responses stay excluded. Original normalized question
+fingerprints continue to prevent exact repeats across the project.
+
+`tests/explorationServer.test.mjs` covers purpose selection, quality rejection,
+bounded revision, honest failure and conditional scenario challenges.
+`tests/explorationWorkshop.live.test.mjs` is opt-in: set
+`DAVE_LIVE_EXPLORATION=1` and run it with Node's test runner. It reuses
+`server/.env` without exposing credentials, sends only synthetic workshop fixtures,
+and writes public generated results to
+`/private/tmp/dave-exploration-workshop-results.json`.
+It tests a citrus press, cycling bag and community seed library at initial,
+first-idea and developed-idea stages. It incurs normal API usage.
+See [the reviewed live examples](EXPLORATION_QUESTION_EVALUATION.md) for the quality
+assessment; automated reference and wording checks alone cannot establish usefulness.

@@ -87,9 +87,12 @@ test('legacy ideas and projects without new fields remain intact; invalid confir
  await page.reload();await stage('Explore');assert.deepEqual((await snapshot()).explorationNodes[0],old);assert.deepEqual((await snapshot()).dimensions,original.dimensions);
 }));
 
-test('Confirm tuning offers a readable review for edited dimensions and continues with unchanged values',async()=>setup(async({page,snapshot,save,stage})=>{
- const original=await seed(page);await page.evaluate(async()=>{const s=(await import('/src/state/projectStore.ts')).projectStore;s.dimensions.update(s.getProject().dimensions[0].id,{midLabel:'Optional support'});});
- await stage('Dimensions');await page.getByRole('button',{name:'Confirm tuning',exact:true}).click();const review=page.getByRole('region',{name:'Review settings before exploration'});await review.waitFor();await page.screenshot({path:'/private/tmp/dave-confirmation-review.png',fullPage:true});await review.getByText('0: Optional support',{exact:true}).waitFor();assert.equal((await snapshot()).exploration,undefined);
- await page.getByRole('button',{name:'Cancel review',exact:true}).click();assert.equal((await snapshot()).dimensionPositions[0].revision,original.dimensionPositions[0].revision);
- await page.getByRole('button',{name:'Confirm tuning',exact:true}).click();await page.getByRole('button',{name:'Confirm reviewed tuning',exact:true}).click();await page.getByRole('button',{name:'Start exploring',exact:true}).waitFor();await save();const p=await snapshot();assert.equal(p.dimensionPositions[0].value,.5);assert.equal(p.exploration.sessions[0].tuningSnapshot[0].positionLabel,'Optional support');assert.equal(await page.getByRole('button',{name:'Explore',exact:true}).getAttribute('aria-current'),'step');
+test('Confirm tuning uses edited labels directly and preserves the chosen values',async()=>setup(async({page,snapshot,save,stage})=>{
+ await seed(page);await page.evaluate(async()=>{const s=(await import('/src/state/projectStore.ts')).projectStore;s.dimensions.update(s.getProject().dimensions[0].id,{midLabel:'Optional support'});});
+ assert.equal((await snapshot()).exploration,undefined);
+ await stage('Dimensions');await page.getByRole('button',{name:'Confirm tuning',exact:true}).click();
+ await page.getByRole('button',{name:'Start exploring',exact:true}).waitFor();await save();
+ const p=await snapshot();assert.equal(p.dimensionPositions[0].value,.5);assert.equal(p.exploration.sessions[0].tuningSnapshot[0].positionLabel,'Optional support');
+ assert.equal(await page.getByRole('region',{name:'Review settings before exploration'}).count(),0);
+ assert.equal(await page.getByRole('button',{name:'Explore',exact:true}).getAttribute('aria-current'),'step');
 }));

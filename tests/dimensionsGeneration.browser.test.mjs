@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
 import {createServer} from 'vite';
-test('dimension proposals require review, retain evidence and edits, regenerate safely, and survive failure and refresh',async()=>{
+test('generated dimensions are immediately editable and tunable, retain evidence and edits, regenerate safely, and survive failure and refresh',async()=>{
  const {chromium}=await import(process.env.DAVE_PLAYWRIGHT_MODULE??'playwright');
  const server=await createServer({server:{host:'127.0.0.1',port:5201,strictPort:false}});await server.listen();
  const browser=await chromium.launch({headless:true,executablePath:process.env.DAVE_BROWSER_EXECUTABLE});
@@ -14,11 +14,11 @@ test('dimension proposals require review, retain evidence and edits, regenerate 
  const snapshot=()=>page.evaluate(async()=>(await import('/src/state/projectStore.ts')).projectStore.getProject());
  await page.route('**/api/dimensions/generate',async route=>{
   requests++;const input=route.request().postDataJSON();
-  assert.equal(input.claims.length,1);assert.equal(input.claims[0].review,'accepted');
+  assert.equal(input.claims.length,2);assert.equal(input.claims[0].review,'accepted');
   assert.equal(input.evidence[0].text,'My hands tire.');
   if(release)await new Promise(resolve=>{release.resolve=resolve;});
   if(fail)return route.fulfill({status:502,contentType:'application/json',body:JSON.stringify({error:'Synthetic API failure'})});
-  const make=(name,n)=>({name,explanation:'Different approaches to pressing.',rationale:'Hand fatigue motivates this consideration.',grounding:'research_grounded',lowLabel:`Manual ${n}`,midLabel:`Supported ${n}`,highLabel:`Assisted ${n}`,lowExplanation:'User provides force.',midExplanation:'Mechanism supports effort.',highExplanation:'Mechanism provides force.',claimIds:[invalid?'fabricated':input.claims[0].id],relationshipIds:[],evidenceIds:[input.evidence[0].id],passages:input.passages.map(p=>({categoryId:p.categoryId,revision:p.revision,index:p.index})),limitations:['One participant.']});
+  const make=(name,n)=>({name,explanation:'Different approaches to pressing.',rationale:'Hand fatigue motivates this consideration.',grounding:'research_grounded',lowLabel:`Manual ${n}`,midLabel:`Supported ${n}`,highLabel:`Assisted ${n}`,lowExplanation:'User provides force.',midExplanation:'Mechanism supports effort.',highExplanation:'Mechanism provides force.',claimIds:[invalid?'fabricated':input.claims[0].id],relationshipIds:[],evidenceIds:n===2?[]:[input.evidence[0].id],passages:n===2?[]:input.passages.map(p=>({categoryId:p.categoryId,revision:p.revision,index:p.index})),limitations:['One participant.']});
   await route.fulfill({contentType:'application/json',body:JSON.stringify({dimensions:empty?[]:[make('Assistance',1),make('Force distribution',2)],warnings:empty?['Insufficient context for more dimensions.']:[],model:'synthetic-model',promptVersion:'test-1'})});
  });
  await page.getByRole('button',{name:'Generate dimensions',exact:true}).click();
@@ -26,7 +26,7 @@ test('dimension proposals require review, retain evidence and edits, regenerate 
  const initial=await page.evaluate(async()=>{
   const s=(await import('/src/state/projectStore.ts')).projectStore;
   const source=s.sources.add({title:'Test interview',originalFile:{id:'test',filename:'test.txt',mediaType:'text/plain'},processingState:'ready',limitations:[],preparedContent:{format:'txt',extractedAt:new Date().toISOString(),sections:[{location:'Paragraph 1',text:'My hands tire.'}],limitations:[]}});
-  s.categories.add({name:'Effort',review:{state:'accepted'},order:0,passages:[{source:{id:source.id,revision:1},sectionIndex:0,start:0,end:14}]});
+  s.categories.add({name:'Effort',review:{state:'proposed'},order:0,passages:[{source:{id:source.id,revision:1},sectionIndex:0,start:0,end:14}]});
   const e=s.evidence.add({source:{id:source.id,revision:1},text:'My hands tire.',location:'Paragraph 1',context:'Test',form:'quotation',limitations:[]});
   const c={statement:'Effort matters.',evidence:[{id:e.id,revision:1}],context:'Test',limitations:[],review:{state:'accepted'}};
   s.claims.add(c);s.claims.add({...c,statement:'Unreviewed proposal.',review:{state:'proposed'}},'dave');
@@ -36,28 +36,28 @@ test('dimension proposals require review, retain evidence and edits, regenerate 
  const generate=()=>page.getByRole('button',{name:'Generate dimensions',exact:true}).click();
  const saved=()=>page.getByText('Saved locally.',{exact:true}).waitFor();
  await generate();await page.getByRole('status').filter({hasText:'2 new proposals'}).waitFor();
- assert.equal(await page.locator('.dimension-card').count(),1);assert.equal((await snapshot()).dimensionPositions.length,1);
- const first=page.locator('.dimension-proposal').filter({has:page.getByText('Assistance',{exact:true})});
- await first.getByRole('button',{name:'Inspect proposal',exact:true}).click();
+ assert.equal(await page.locator('.dimension-card').count(),3);assert.equal((await snapshot()).dimensionPositions.length,1);
+ assert.equal(await page.getByRole('button',{name:'Accept',exact:true}).count(),0);
+ assert.equal(await page.getByText('AI inference · Evidence not verified',{exact:true}).count(),1);
+ const first=page.locator('.dimension-card').filter({has:page.getByText('Assistance',{exact:true})});
+ await page.getByRole('button',{name:'Show dimensions',exact:true}).click();
+ await first.getByRole('button',{name:/Associated findings/}).click();
  await page.getByLabel('Dimension and research inspector').getByText('0: Supported 1',{exact:true}).waitFor();
  await page.getByLabel('Dimension and research inspector').locator('.inspector-excerpt summary').first().click();
  assert.equal(await page.getByLabel('Dimension and research inspector').locator('blockquote').first().innerText(),'My hands tire.');
- await first.getByRole('button',{name:'Edit proposal',exact:true}).click();
+ await first.getByRole('button',{name:'Edit Assistance',exact:true}).click();
  await page.getByLabel('Title',{exact:true}).fill('Amount of assistance');
  await page.getByLabel('Position 0 label',{exact:true}).fill('Partly supported');
  await page.getByRole('button',{name:'Save dimension',exact:true}).click();
- assert.equal(await page.locator('.dimension-card').count(),1);
- const edited=page.locator('.dimension-proposal').filter({has:page.getByText('Amount of assistance',{exact:true})});
- await edited.getByRole('button',{name:'Accept',exact:true}).click();
- assert.equal(await page.locator('.dimension-card').count(),2);
- await page.getByRole('button',{name:'Show dimensions',exact:true}).click();
+ assert.equal(await page.locator('.dimension-card').count(),3);
  await page.locator('.dimension-card').filter({has:page.getByRole('heading',{name:'Amount of assistance',exact:true})}).getByRole('button',{name:'+1: Assisted 1',exact:true}).click();
- await page.locator('.dimension-proposal').getByRole('button',{name:'Reject',exact:true}).click();
+ await page.getByRole('button',{name:'Edit Force distribution',exact:true}).click();
+ await page.getByRole('button',{name:'Remove dimension',exact:true}).click();
  await saved();await page.reload();await page.getByRole('button',{name:'Dimensions',exact:true}).click();
- let p=await snapshot();assert.equal(p.dimensions[1].origin,'dave_edited_by_researcher');assert.equal(p.dimensions[1].review.state,'accepted');assert.equal(p.dimensions[2].review.state,'rejected');assert.equal(p.dimensionPositions[1].value,1);assert.equal(p.dimensions[1].history[0].content.name,'Assistance');
+ let p=await snapshot();assert.equal(p.dimensions[1].origin,'dave_edited_by_researcher');assert.equal(p.dimensions[1].review.state,'proposed');assert.ok(p.dimensions[2].archivedAt);assert.equal(p.dimensionPositions[1].value,1);assert.equal(p.dimensions[1].history[0].content.name,'Assistance');
  const preserved=await snapshot();
  await generate();await page.getByRole('status').filter({hasText:'0 new proposals'}).waitFor();assert.deepEqual(await snapshot(),preserved);
- invalid=true;await generate();await page.getByRole('alert').filter({hasText:'fabricated'}).waitFor();assert.deepEqual(await snapshot(),preserved);invalid=false;
+ invalid=true;await generate();await page.getByRole('alert').filter({hasText:'unavailable claim'}).waitFor();assert.deepEqual(await snapshot(),preserved);invalid=false;
  empty=true;await generate();await page.getByRole('status').filter({hasText:'Insufficient context'}).waitFor();assert.deepEqual(await snapshot(),preserved);empty=false;
  fail=true;await generate();await page.getByRole('alert').filter({hasText:'Synthetic API failure'}).waitFor();assert.deepEqual(await snapshot(),preserved);fail=false;
  // Research changes during a request must invalidate the result atomically.

@@ -246,6 +246,11 @@ export function createProjectStore() {
     publish({ ...state, [collection]: state[collection].map(item => item.id === entityId ? result : item) });
     return structuredClone(result) as Item<K>;
   }
+  // Retain archived interpretations for saved downstream provenance.
+  function removeInterpretation(collection: 'claims' | 'relationships', entityId: M.Claim['id'] | M.Relationship['id']) {
+    const state = current(); find(collection, entityId); const time = now();
+    publish({ ...state, [collection]: state[collection].map(item => item.id === entityId ? { ...item, archivedAt: time, updatedAt: time } : item) });
+  }
   function operations<K extends Collection>(collection: K) {
     return {
       add: (input: Input<K>, actor?: M.Actor) => add(collection, input, actor),
@@ -313,14 +318,14 @@ export function createProjectStore() {
       return structuredClone(categories);
     },
     evidence: operations('evidence'),
-    claims: operations('claims'),
+    claims: { ...operations('claims'), remove: (entityId: M.Claim['id']) => removeInterpretation('claims', entityId) },
     setClaimMapPositions(positions: {id: M.Claim['id']; position: {x:number;y:number}}[]) {
       const state=current();
       for(const entry of positions){find('claims',entry.id);if(!Number.isFinite(entry.position.x)||!Number.isFinite(entry.position.y))throw new Error('Map coordinates must be finite.');}
       const byId=new Map(positions.map(p=>[p.id,p.position]));
       publish({...state,claims:state.claims.map(c=>byId.has(c.id)?{...c,mapPosition:structuredClone(byId.get(c.id)!),updatedAt:now()}:c)});
     },
-    relationships: operations('relationships'),
+    relationships: { ...operations('relationships'), remove: (entityId: M.Relationship['id']) => removeInterpretation('relationships', entityId) },
     dimensions: {
       ...operations('dimensions'),
       remove(dimensionId: M.Dimension['id']) {
@@ -333,12 +338,12 @@ export function createProjectStore() {
     },
     confirmExploration(): M.ExplorationSession {
       const state = current();
-      const positions = state.dimensionPositions.filter(p => p.selected && !p.archivedAt && state.dimensions.some(d => d.id === p.dimension.id && !d.archivedAt && (d.origin === 'researcher' || d.review.state === 'accepted')));
+      const positions = state.dimensionPositions.filter(p => p.selected && !p.archivedAt && state.dimensions.some(d => d.id === p.dimension.id && !d.archivedAt && d.review.state !== 'rejected'));
       if (!positions.length) throw new Error('Select at least one dimension for exploration and choose its position before continuing.');
       const tuningSnapshot: M.ExplorationSetting[] = positions.map(p => {
         const d = find('dimensions', p.dimension.id);
-        if (d.archivedAt || (d.origin !== 'researcher' && d.review.state !== 'accepted'))
-          throw new Error(`Review or deselect “${d.name}” before continuing.`);
+        if (d.archivedAt || d.review.state === 'rejected')
+          throw new Error(`Restore or deselect “${d.name}” before continuing.`);
         if (d.revision !== p.dimension.revision)
           throw new Error(`“${d.name}” has changed. Choose its position again before confirming.`);
         if (p.value === null) throw new Error(`Choose a position for “${d.name}” before continuing.`);

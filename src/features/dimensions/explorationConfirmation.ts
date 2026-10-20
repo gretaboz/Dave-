@@ -7,7 +7,7 @@ function label(d:DimensionContent|undefined,value:number|null) {
 }
 export function explorationSettings(project:Project) {
  return project.dimensionPositions.filter(p=>p.selected&&!p.archivedAt).flatMap(p=>{
-  const d=project.dimensions.find(d=>d.id===p.dimension.id&&!d.archivedAt&&(d.origin==='researcher'||d.review.state==='accepted'));
+  const d=project.dimensions.find(d=>d.id===p.dimension.id&&!d.archivedAt&&d.review.state!=='rejected');
   if(!d)return [];
   const previous=d.revision===p.dimension.revision?d:d.history.find(h=>h.revision===p.dimension.revision)?.content;
   return [{position:{id:p.id,revision:p.revision},dimension:{id:d.id,revision:d.revision},name:d.name,value:p.value,label:label(d,p.value),previousLabel:label(previous,p.value),changed:d.revision!==p.dimension.revision}];
