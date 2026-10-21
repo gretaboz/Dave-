@@ -146,3 +146,13 @@ test('category deletion preserves source content, files and category revision hi
   assert.equal(project.sources[0].primaryCategoryId, undefined);
   assert.equal(project.sources[0].history[0].content.primaryCategoryId, category.id);
 });
+
+test('deleting interpretations archives them without changing evidence or downstream references',()=>{
+ const store=setup();const source=store.sources.add({title:'Interview',originalFile:{id:'test' as never,filename:'test.txt',mediaType:'text/plain'},processingState:'ready',limitations:[]});
+ const evidence=store.evidence.add({source:{id:source.id,revision:1},text:'Original wording',form:'quotation',location:'Paragraph 1',context:'Test',limitations:[]});
+ const claim=store.claims.add({statement:'Interpretation',evidence:[{id:evidence.id,revision:1}],limitations:[],review:{state:'proposed'}},'dave');
+ const d=store.dimensions.add({...dimensionContent(),claims:[{id:claim.id,revision:1}]},'dave');
+ store.claims.remove(claim.id);const p=store.getProject()!;
+ assert.ok(p.claims[0].archivedAt);assert.equal(p.claims[0].revision,1);
+ assert.deepEqual(p.evidence[0],evidence);assert.deepEqual(p.sources[0],source);assert.deepEqual(p.dimensions[0],d);
+});

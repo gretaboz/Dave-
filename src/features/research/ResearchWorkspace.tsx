@@ -234,11 +234,7 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
             <p className="research-description-label">{selectedCategory.origin === 'researcher' ? 'Your category description' : selectedCategory.analysis?.promptVersion === 'demo-citrus-1' ? 'Synthetic demo description' : 'DAVE’s category description'}</p>
             <p className="research-summary">{selectedCategory.description || (selectedCategory.passages ? 'A source was deleted. Analyse again to propose a new summary, or keep exploring the remaining excerpts.' : 'A category organised by you.')}</p>
             <div className="research-inspector-meta"><span>{selectedCategory.analysis?.promptVersion === 'demo-citrus-1' ? 'Synthetic demo proposal' : selectedCategory.origin === 'dave' ? 'Proposed by DAVE' : selectedCategory.origin === 'dave_edited_by_researcher' ? 'Edited by you' : 'Created by you'}</span>
-              <button className="research-text-button" type="button" disabled={busy} onClick={() => change(() => store.categories.update(selectedCategory.id,
-                { review: { state: selectedCategory.review?.state === 'rejected' ? 'proposed' : 'rejected' } }))}>
-                {selectedCategory.review?.state === 'rejected' ? 'Restore category' : 'Reject category'}</button>
             </div>
-            {selectedCategory.review?.state === 'rejected' && <p className="research-empty">This category is rejected. You can restore it at any time.</p>}
             {!selectedCategory.passages && sources.filter(source => source.primaryCategoryId === selectedCategory.id).map(source => <p key={source.id}>
               <button className="research-text-button" onClick={() => { void original(source); }}>{source.title} · Download original</button>
             </p>)}

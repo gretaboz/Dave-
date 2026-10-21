@@ -211,3 +211,39 @@ test('continued saves persist later edits; edits during loading are protected', 
   assert.deepEqual(result, { continuedName: 'Continued work', failed: true, currentName: 'Edited during loading' });
   await page.close();
 });
+
+test('a legacy current-only project survives creation of a second project', async () => {
+  const page = await pageForTest();
+  const result = await page.evaluate(async () => {
+    const { makeProject, createLocalPersistence } = window.persistenceTest;
+    const { store } = makeProject();
+    const legacy = store.getProject();
+    const name = `legacy-projects-${crypto.randomUUID()}`;
+    const persistence = createLocalPersistence({ databaseName: name });
+    await persistence.loadProject(); // Initialise the existing schema.
+    await new Promise((resolve, reject) => {
+      const open = indexedDB.open(name, 1);
+      open.onsuccess = () => {
+        const db = open.result;
+        const tx = db.transaction('projects', 'readwrite');
+        tx.objectStore('projects').put(legacy, 'current');
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onabort = () => { db.close(); reject(tx.error); };
+      };
+      open.onerror = () => reject(open.error);
+    });
+    const { createProjectStore } = await import('/src/state/projectStore.ts');
+    const next = createProjectStore().createProject({ name: 'New blank project', context: '' });
+    await persistence.saveProject(next);
+    return {
+      legacyUnchanged: JSON.stringify(await persistence.loadProject(legacy.id)) === JSON.stringify(legacy),
+      current: (await persistence.loadProject()).id,
+      next: next.id,
+      projects: (await persistence.listProjects()).length,
+    };
+  });
+  assert.equal(result.legacyUnchanged, true);
+  assert.equal(result.current, result.next);
+  assert.equal(result.projects, 2);
+  await page.close();
+});

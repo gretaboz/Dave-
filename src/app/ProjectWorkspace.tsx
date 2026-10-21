@@ -1,4 +1,5 @@
 import { memo, useState } from 'react';
+import type { EntityId } from '../model/types';
 import type { FormEvent } from 'react';
 import { useProject, useProjectSession } from '../state/ProjectProvider';
 
@@ -10,9 +11,11 @@ const statusText = {
 } as const;
 
 /** Shared project context, independent of which workflow stage is open. */
-export const ProjectWorkspace = memo(function ProjectWorkspace() {
-  const { project, status, error, errorOperation } = useProject();
+export const ProjectWorkspace = memo(function ProjectWorkspace({ onProjectOpened }: { onProjectOpened: () => void }) {
+  const { project, projects = [], status, error, errorOperation } = useProject();
   const session = useProjectSession();
+  const [creating, setCreating] = useState(false);
+  const busy = status === 'loading' || status === 'saving' || status === 'error';
   const [name, setName] = useState('');
   const [editingName, setEditingName] = useState(false);
   const [context, setContext] = useState('');
@@ -21,7 +24,7 @@ export const ProjectWorkspace = memo(function ProjectWorkspace() {
   function createProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
-    try { session.createProject({ name, context }); }
+    try { session.createProject({ name, context: project ? '' : context }); setCreating(false); setName(''); setContext(''); onProjectOpened(); }
     catch (error) { setFormError(error instanceof Error ? error.message : 'Could not create the project.'); }
   }
 
@@ -38,6 +41,28 @@ export const ProjectWorkspace = memo(function ProjectWorkspace() {
           </button>
         </div>
       )}
+      <div className="project-controls">
+        {project && <select aria-label="Project" value={project.id} disabled={busy} onChange={event => {
+          setFormError(null);
+          void session.switchProject(event.target.value as EntityId<'project'>).then(() => {
+            setCreating(false); setEditingName(false); onProjectOpened();
+          }).catch(error => setFormError(error instanceof Error ? error.message : 'Could not open the project.'));
+        }}>
+          {(!projects.some(item => item.id === project.id) ? [...projects, project] : projects).map(item =>
+            <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select>}
+        <button className="project-button" type="button" disabled={busy} onClick={() => {
+          setName(''); setContext(''); setEditingName(false); setFormError(null); setCreating(true);
+        }}>New Project</button>
+      </div>
+      {formError && !creating && !editingName && project && <p role="alert">{formError}</p>}
+      {creating && <form className="project-form" onSubmit={createProject}>
+        <label htmlFor="new-project-name">Project name</label>
+        <input id="new-project-name" value={name} onChange={event => setName(event.target.value)} required autoFocus />
+        {formError && <p role="alert">{formError}</p>}
+        <div><button className="project-button" disabled={busy || !name.trim()}>Create project</button>
+          <button className="research-text-button" type="button" onClick={() => setCreating(false)}>Cancel</button></div>
+      </form>}
       {project ? (
         <div className="project-summary">
           {editingName ? <form className="research-inline-form" onSubmit={event => {
@@ -55,7 +80,7 @@ export const ProjectWorkspace = memo(function ProjectWorkspace() {
           </div>}
 
         </div>
-      ) : status === 'empty' ? (
+      ) : status === 'empty' && !creating ? (
         <form className="project-form" onSubmit={createProject}>
           <p>Create a project to begin.</p>
           <label htmlFor="project-name">Project name</label>

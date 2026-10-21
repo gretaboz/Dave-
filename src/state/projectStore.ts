@@ -1,3 +1,4 @@
+import {nextBranchPoint,identicalTuning,branchName} from '../features/exploration/layout';
 import type * as M from '../model/types';
 import { assertProjectSnapshot } from '../model/validateProject';
 
@@ -19,7 +20,7 @@ type Extras<K extends Collection> = K extends 'sources'
   ? Pick<M.Source, 'processingState' | 'processingError'>
   : K extends 'claims' | 'relationships' ? { mapPosition?: { x: number; y: number } }
   : K extends 'categories' ? Pick<M.ResearchCategory, 'order'>
-  : K extends 'explorationNodes' ? Pick<M.ExplorationNode, 'position'>
+  : K extends 'explorationNodes' ? Pick<M.ExplorationNode, 'position' | 'coordinateSpace' | 'branchAligned'>
   : Record<never, never>;
 type Input<K extends Collection> = ContentMap[K] & Extras<K>;
 
@@ -42,9 +43,9 @@ const contentKeys = {
   evidence: ['categories', 'passage', 'source', 'text', 'form', 'location', 'context', 'limitations'],
   claims: ['statement', 'evidence', 'context', 'stakeholder', 'limitations', 'review'],
   relationships: ['evidence', 'description', 'type', 'claims', 'explanation', 'contextCheck', 'challenge', 'limitations', 'review'],
-  dimensions: ['name', 'lowLabel', 'midLabel', 'highLabel', 'rationale', 'grounding', 'draftPosition', 'explanation', 'claims', 'relationships', 'limitations', 'review'],
+  dimensions: ['evidence', 'researchPassages', 'generation', 'name', 'lowLabel', 'midLabel', 'highLabel', 'lowExplanation', 'midExplanation', 'highExplanation', 'rationale', 'grounding', 'draftPosition', 'explanation', 'claims', 'relationships', 'limitations', 'review'],
   dimensionPositions: ['dimension', 'selected', 'value', 'reasoning', 'confirmedAt'],
-  explorationNodes: ['title', 'content', 'references', 'dimensionPositions', 'limitations'],
+  explorationNodes: ['branchParent', 'questionState', 'question', 'explorationSession', 'title', 'content', 'references', 'dimensionPositions', 'limitations'],
   explorationConnections: ['fromNodeId', 'toNodeId', 'label', 'directional'],
   directions: ['title', 'description', 'reasoning', 'openQuestions', 'state', 'explorationNodes', 'references', 'tuningSnapshot', 'limitations'],
 } as const satisfies { [K in Collection]: readonly (keyof ContentMap[K])[] };
@@ -143,6 +144,12 @@ export function createProjectStore() {
       }
       case 'dimensions': {
         const dimension = value as M.Dimension;
+        dimension.evidence?.forEach(ref=>resolve('evidence',ref));
+        dimension.researchPassages?.forEach(({category,passage})=>{
+          const content=resolve('categories',category);
+          if(!content.passages?.some(p=>equal(p,passage)))throw new Error('A dimension passage must match its original category revision.');
+          resolve('sources',passage.source);
+        });
         dimension.claims.forEach(ref => resolve('claims', ref));
         dimension.relationships.forEach(ref => resolve('relationships', ref));
         break;
@@ -157,6 +164,21 @@ export function createProjectStore() {
       case 'explorationNodes': {
         const node = value as M.ExplorationNode;
         references(node.references);
+        if (node.branchParent) resolve('explorationNodes',node.branchParent);
+        if (node.question) {
+          if (node.content.type !== 'question') throw new Error('Question metadata needs a question card.');
+          node.question.categories.forEach(ref=>resolve('categories',ref));
+          node.question.researchPassages?.forEach(({category,passage})=>{
+            const content=resolve('categories',category);
+            if(!content.passages?.some(p=>equal(p,passage)))throw new Error('Question research must match its saved source passage.');
+            resolve('sources',passage.source);
+          });
+          node.question.branch.forEach(ref=>resolve('explorationNodes',ref));
+          node.question.consideredPositions.forEach(ref=>resolve('dimensionPositions',ref));
+          references(node.question.considered);
+        }
+        if (node.explorationSession && !current().exploration?.sessions.some(s => s.id === node.explorationSession!.id && s.revision === node.explorationSession!.revision))
+          throw new Error('Unknown exploration session.');
         node.dimensionPositions.forEach(ref => resolve('dimensionPositions', ref));
         if (!Number.isFinite(node.position.x) || !Number.isFinite(node.position.y))
           throw new Error('Board coordinates must be finite numbers.');
@@ -164,8 +186,10 @@ export function createProjectStore() {
       }
       case 'explorationConnections': {
         const connection = value as M.ExplorationConnection;
-        find('explorationNodes', connection.fromNodeId);
-        find('explorationNodes', connection.toNodeId);
+        if (connection.fromNodeId === connection.toNodeId) throw new Error('Connect two different ideas.');
+        const from=find('explorationNodes',connection.fromNodeId),to=find('explorationNodes',connection.toNodeId);
+        if(from.explorationSession&&to.explorationSession&&from.explorationSession.id!==to.explorationSession.id)throw new Error('Connect ideas within the same tuning branch.');
+        if (from.archivedAt || to.archivedAt) throw new Error('Cannot connect a deleted idea.');
         break;
       }
       case 'directions': {
@@ -191,7 +215,7 @@ export function createProjectStore() {
   }
   function allowedKeys(collection: Collection): readonly string[] {
     return [...contentKeys[collection], ...(['claims', 'relationships'].includes(collection) ? ['mapPosition'] : []), ...(collection === 'sources' ? ['processingState', 'processingError']
-      : collection === 'categories' ? ['order'] : collection === 'explorationNodes' ? ['position'] : [])];
+      : collection === 'categories' ? ['order'] : collection === 'explorationNodes' ? ['position', 'coordinateSpace', 'branchAligned'] : [])];
   }
   function add<K extends Collection>(collection: K, input: Input<K>, actor: M.Actor = 'researcher'): Item<K> {
     const state = current();
@@ -215,12 +239,17 @@ export function createProjectStore() {
     if (equal(old, next)) return structuredClone(old);
     const before = pick<ContentMap[K]>(old, contentKeys[collection]);
     const after = pick<ContentMap[K]>(next, contentKeys[collection]);
-    const withoutReview = contentKeys[collection].filter(key => key !== 'review');
+    const withoutReview = contentKeys[collection].filter(key => key !== 'review' && (collection !== 'explorationNodes' || key !== 'questionState'));
     const reviewOnly = equal(pick(old, withoutReview), pick(next, withoutReview));
     const result = equal(before, after) ? { ...next, updatedAt: now() }
       : revise(next as unknown as M.Entity<string, ContentMap[K]> & ContentMap[K], before, after, options, reviewOnly);
     publish({ ...state, [collection]: state[collection].map(item => item.id === entityId ? result : item) });
     return structuredClone(result) as Item<K>;
+  }
+  // Retain archived interpretations for saved downstream provenance.
+  function removeInterpretation(collection: 'claims' | 'relationships', entityId: M.Claim['id'] | M.Relationship['id']) {
+    const state = current(); find(collection, entityId); const time = now();
+    publish({ ...state, [collection]: state[collection].map(item => item.id === entityId ? { ...item, archivedAt: time, updatedAt: time } : item) });
   }
   function operations<K extends Collection>(collection: K) {
     return {
@@ -289,17 +318,86 @@ export function createProjectStore() {
       return structuredClone(categories);
     },
     evidence: operations('evidence'),
-    claims: operations('claims'),
+    claims: { ...operations('claims'), remove: (entityId: M.Claim['id']) => removeInterpretation('claims', entityId) },
     setClaimMapPositions(positions: {id: M.Claim['id']; position: {x:number;y:number}}[]) {
       const state=current();
       for(const entry of positions){find('claims',entry.id);if(!Number.isFinite(entry.position.x)||!Number.isFinite(entry.position.y))throw new Error('Map coordinates must be finite.');}
       const byId=new Map(positions.map(p=>[p.id,p.position]));
       publish({...state,claims:state.claims.map(c=>byId.has(c.id)?{...c,mapPosition:structuredClone(byId.get(c.id)!),updatedAt:now()}:c)});
     },
-    relationships: operations('relationships'),
-    dimensions: operations('dimensions'),
-    explorationNodes: operations('explorationNodes'),
-    explorationConnections: operations('explorationConnections'),
+    relationships: { ...operations('relationships'), remove: (entityId: M.Relationship['id']) => removeInterpretation('relationships', entityId) },
+    dimensions: {
+      ...operations('dimensions'),
+      remove(dimensionId: M.Dimension['id']) {
+        const state = current();
+        find('dimensions', dimensionId);
+        const time = now();
+        publish({ ...state, dimensions: state.dimensions.map(d => d.id === dimensionId
+          ? { ...d, archivedAt: time, updatedAt: time } : d) });
+      },
+    },
+    confirmExploration(): M.ExplorationSession {
+      const state = current();
+      const positions = state.dimensionPositions.filter(p => p.selected && !p.archivedAt && state.dimensions.some(d => d.id === p.dimension.id && !d.archivedAt && d.review.state !== 'rejected'));
+      if (!positions.length) throw new Error('Select at least one dimension for exploration and choose its position before continuing.');
+      const tuningSnapshot: M.ExplorationSetting[] = positions.map(p => {
+        const d = find('dimensions', p.dimension.id);
+        if (d.archivedAt || d.review.state === 'rejected')
+          throw new Error(`Restore or deselect “${d.name}” before continuing.`);
+        if (d.revision !== p.dimension.revision)
+          throw new Error(`“${d.name}” has changed. Choose its position again before confirming.`);
+        if (p.value === null) throw new Error(`Choose a position for “${d.name}” before continuing.`);
+        const positionLabel = p.value === 0 ? d.lowLabel : p.value === .5 ? d.midLabel : p.value === 1 ? d.highLabel : `${Math.round(p.value * 100)}% between ${d.lowLabel} and ${d.highLabel}`;
+        if (!positionLabel?.trim()) throw new Error(`Add a meaningful label for the chosen position of “${d.name}” before continuing.`);
+        return { dimension: { ...p.dimension }, position: { id: p.id, revision: p.revision },
+          dimensionName: d.name, lowLabel: d.lowLabel, midLabel: d.midLabel, highLabel: d.highLabel,
+          value: p.value, selected: true, reasoning: p.reasoning, positionLabel,
+          positionExplanation: p.value === 0 ? d.lowExplanation : p.value === .5 ? d.midExplanation : p.value === 1 ? d.highExplanation : undefined };
+      });
+      const matching=state.exploration?.sessions.find(s=>identicalTuning(s.tuningSnapshot,tuningSnapshot));
+      if(matching)throw new Error(`This tuning already exists in ${branchName(state,matching)}. Change the tuning to create a new branch.`);
+      const time = now();
+      const session: M.ExplorationSession = { id: id<'exploration_session'>(), revision: 1, origin: 'researcher', createdAt: time, updatedAt: time, history: [], tuningSnapshot, name:`Branch ${(state.exploration?.sessions.length??0)+1}`,position:nextBranchPoint(state),expanded:false };
+      publish({ ...state, exploration: { sessions: [...(state.exploration?.sessions ?? []), session], activeSessionId: session.id } });
+      return structuredClone(session);
+    },
+    selectExplorationBranch(branchId:M.ExplorationSession['id']) {
+      const state=current();
+      if(!state.exploration?.sessions.some(s=>s.id===branchId))throw new Error('This exploration branch is unavailable.');
+      if(state.exploration.activeSessionId!==branchId)publish({...state,exploration:{...state.exploration,activeSessionId:branchId}});
+    },
+    updateExplorationBranch(branchId:M.ExplorationSession['id'],patch:{name?:string;position?:{x:number;y:number};expanded?:boolean}) {
+      const state=current();const branch=state.exploration?.sessions.find(s=>s.id===branchId);
+      if(!branch||!state.exploration)throw new Error('This exploration branch is unavailable.');
+      if(patch.name!==undefined&&(!patch.name.trim()||patch.name.trim().length>100))throw new Error('Give this branch a name of up to 100 characters.');
+      if(patch.expanded!==undefined&&typeof patch.expanded!=='boolean')throw new Error('Invalid branch expansion state.');
+      if(patch.position&&(!Number.isFinite(patch.position.x)||!Number.isFinite(patch.position.y)))throw new Error('Branch coordinates must be finite.');
+      const safe:typeof patch={...(patch.name!==undefined?{name:patch.name.trim()}:{}),...(patch.position?{position:{...patch.position}}:{}),...(patch.expanded!==undefined?{expanded:patch.expanded}:{})};
+      if(Object.entries(safe).every(([k,v])=>equal(branch[k as keyof M.ExplorationSession],v)))return;
+      const time=now();const next={...branch,...safe,updatedAt:time,...(safe.name!==undefined&&safe.name!==branch.name?{nameHistory:[...(branch.nameHistory??[]),{name:branch.name??`Branch ${state.exploration.sessions.indexOf(branch)+1}`,changedAt:time}]}:{})};
+      publish({...state,exploration:{...state.exploration,sessions:state.exploration.sessions.map(s=>s.id===branchId?next:s)}});
+    },
+    setMapView(stage: M.MapStage, view: M.MapViewport) {
+      if (![view.x, view.y, view.scale].every(Number.isFinite) || view.scale < .2 || view.scale > 2) throw new Error('Invalid map view.');
+      const state = current();
+      if (!equal(state.mapViews?.[stage], view)) publish({ ...state, mapViews: { ...state.mapViews, [stage]: view } });
+    },
+    explorationNodes: {
+      ...operations('explorationNodes'),
+      remove(nodeId: M.ExplorationNode['id']) {
+        const state = current(); find('explorationNodes', nodeId); const time = now();
+        publish({ ...state,
+          explorationNodes: state.explorationNodes.map(n => n.id === nodeId ? { ...n, archivedAt: time, updatedAt: time } : n),
+          explorationConnections: state.explorationConnections.map(c => c.fromNodeId === nodeId || c.toNodeId === nodeId ? { ...c, archivedAt: time, updatedAt: time } : c) });
+      },
+    },
+    explorationConnections: {
+      ...operations('explorationConnections'),
+      remove(connectionId: M.ExplorationConnection['id']) {
+        const state = current(); find('explorationConnections', connectionId); const time = now();
+        publish({ ...state, explorationConnections: state.explorationConnections.map(c => c.id === connectionId ? { ...c, archivedAt: time, updatedAt: time } : c) });
+      },
+    },
     setDimensionPosition(input: M.DimensionPositionContent, options: EditOptions = {}): M.DimensionPosition {
       const existing = current().dimensionPositions.find(item => item.dimension.id === input.dimension.id);
       return existing ? update('dimensionPositions', existing.id, input, options)

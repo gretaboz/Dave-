@@ -1,13 +1,14 @@
 import { withoutResearchSource } from '../features/research/deleteSource';
 import type { Project, ProjectContent, EntityId } from '../model/types';
 import type { createLocalPersistence } from '../persistence/localPersistence';
-import type { createProjectStore } from './projectStore';
+import { createProjectStore } from './projectStore';
 
 type Store = ReturnType<typeof createProjectStore>;
 type Persistence = Pick<ReturnType<typeof createLocalPersistence>, 'loadIntoStore' | 'saveProject'>
-  & Partial<Pick<ReturnType<typeof createLocalPersistence>, 'saveFile' | 'loadFile'>>;
+  & Partial<Pick<ReturnType<typeof createLocalPersistence>, 'saveFile' | 'loadFile' | 'listProjects' | 'loadProject'>>;
 
 export interface ProjectSnapshot {
+  projects?: { id: EntityId<'project'>; name: string }[];
   project: Project | null;
   status: 'loading' | 'empty' | 'saving' | 'saved' | 'error';
   error: string | null;
@@ -30,8 +31,10 @@ export function createProjectSession(store: Store, persistence: Persistence) {
   let unsubscribeStore: (() => void) | null = null;
   let observed = JSON.stringify(snapshot.project);
 
+  let projects: NonNullable<ProjectSnapshot['projects']> = [];
+
   function publish(next: ProjectSnapshot) {
-    snapshot = next;
+    snapshot = { ...next, projects };
     for (const listener of listeners) listener();
   }
 
@@ -48,6 +51,7 @@ export function createProjectSession(store: Store, persistence: Persistence) {
         const deletions = [...deletedAssets];
         try {
           await persistence.saveProject(next, [], deletions);
+          projects = persistence.listProjects ? await persistence.listProjects() : [{ id: next.id, name: next.name }];
           deletions.forEach(id => deletedAssets.delete(id));
         }
         catch (error) {
@@ -95,6 +99,7 @@ export function createProjectSession(store: Store, persistence: Persistence) {
     loadPromise = (async () => {
       try {
         const saved = await persistence.loadIntoStore(store);
+        projects = persistence.listProjects ? await persistence.listProjects() : [];
         initialised = true;
         const project = store.getProject();
         observed = JSON.stringify(project);
@@ -159,8 +164,30 @@ export function createProjectSession(store: Store, persistence: Persistence) {
     },
     createProject(content: ProjectContent) {
       if (!initialised) throw new Error('Load the saved project before creating a new one.');
+      if (saving || pending || snapshot.status === 'loading') throw new Error('Wait for your project to finish saving before creating another.');
       if (!content.name.trim()) throw new Error('Enter a project name.');
-      return store.createProject({ name: content.name.trim(), context: content.context });
+      const blank = createProjectStore().createProject({ name: content.name.trim(), context: content.context });
+      store.restoreProject(blank);
+      return blank;
+    },
+    async switchProject(id: EntityId<'project'>) {
+      if (!initialised || saving || pending || snapshot.status === 'loading')
+        throw new Error('Wait for your project to finish saving before switching.');
+      if (!persistence.loadProject) throw new Error('Project switching is unavailable.');
+      publish({ ...snapshot, status: 'loading', error: null, errorOperation: null });
+      try {
+        const project = await persistence.loadProject(id);
+        if (!project) throw new Error('This project could not be found.');
+        // Persist the active selection before changing the visible project.
+        await persistence.saveProject(project);
+        initialised = false;
+        store.restoreProject(project);
+        observed = JSON.stringify(project);
+        publish({ project, status: 'saved', error: null, errorOperation: null });
+      } catch (error) {
+        publish({ ...snapshot, status: snapshot.project ? 'saved' : 'empty', error: null, errorOperation: null });
+        throw error;
+      } finally { initialised = true; }
     },
     retry(): Promise<void> {
       return snapshot.errorOperation === 'load' ? load() : save();

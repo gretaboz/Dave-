@@ -64,10 +64,10 @@ test('creates a real empty project, keeps one project through every stage, and r
     for (const key of ['sources', 'categories', 'evidence', 'claims', 'relationships', 'dimensions',
       'dimensionPositions', 'explorationNodes', 'explorationConnections', 'directions']) assert.deepEqual(project[key], []);
     for (const stage of ['Research', 'Relationships', 'Dimensions', 'Explore', 'Directions']) {
-      await page.getByRole('button', { name: new RegExp(`${stage}$`) }).click();
+      await page.getByRole('button', { name: stage, exact: true }).click();
       if (stage !== 'Research') await page.getByRole('heading', { name: stage, level: 2, exact: true }).waitFor();
       else assert.equal(await page.getByRole('heading', { name: stage, level: 2, exact: true }).count(), 0);
-      assert.equal(await page.getByRole('button', { name: new RegExp(`${stage}$`) }).getAttribute('aria-current'), 'step');
+      assert.equal(await page.getByRole('button', { name: stage, exact: true }).getAttribute('aria-current'), 'step');
       await page.getByRole('heading', { name: 'Museum visit', exact: true }).waitFor();
       assert.deepEqual(await currentProject(page), project);
     }
@@ -224,7 +224,7 @@ test('project title can be edited and persists after refresh; Research heading i
   } finally { await context.close(); }
 });
 
-test('Dimensions is a placeholder and preserves saved research, reviews and dimensions without AI requests', async () => {
+test('Opening manual Dimensions preserves saved research, reviews and dimensions without AI requests', async () => {
   const { context, page, errors } = await openShell();
   const requests = [];
   page.on('request', request => { if (request.url().includes('/api/dimensions/')) requests.push(request.url()); });
@@ -245,14 +245,59 @@ test('Dimensions is a placeholder and preserves saved research, reviews and dime
     await waitForText(page, 'status', 'Saved locally.');
     for (let i = 0; i < 2; i++) {
       await page.getByRole('button', { name: 'Dimensions', exact: true }).click();
-      await page.getByText('Dimensions — To be redesigned', { exact: true }).waitFor();
-      assert.equal(await page.locator('.map-dimension, .dimensions-workspace').count(), 0);
-      assert.equal(await page.getByRole('button', { name: /Generate dimensions|Confirm dimensions|Add custom dimension/ }).count(), 0);
+      await page.getByRole('button', { name: 'Show dimensions', exact: true }).click();
+      await page.locator('.dimension-card').getByRole('heading', { name: 'Saved variation', exact: true }).waitFor();
+      assert.equal(await page.locator('.dimensions-workspace').count(), 1);
+      assert.equal(await page.locator('.dimension-card').count(), 1);
+      assert.equal(await page.getByRole('button', { name: /Confirm dimensions|Add custom dimension/ }).count(), 0);
       assert.deepEqual(await currentProject(page), before);
       assert.deepEqual(await page.evaluate(async () => (await import('/src/persistence/localPersistence.ts')).createLocalPersistence().loadProject()), before);
       if (i === 0) { await page.reload(); await waitForText(page, 'status', 'Saved locally.'); }
     }
     assert.deepEqual(requests, []);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('New Project starts blank and projects retain independent content across switching and reload', async () => {
+  const { context, page, errors } = await openShell();
+  try {
+    await page.goto(server.resolvedUrls.local[0]);
+    await page.getByRole('button', { name: 'Live AI', exact: true }).click();
+    await waitForText(page, 'status', 'No project yet.');
+    await page.getByLabel('Project name', { exact: true }).fill('Original project');
+    await page.getByRole('button', { name: 'Create project', exact: true }).click();
+    await waitForText(page, 'status', 'Saved locally.');
+    const original = await page.evaluate(async () => {
+      const { projectStore: store } = await import('/src/state/projectStore.ts');
+      store.categories.add({ name: 'Original category', order: 0 });
+      return store.getProject();
+    });
+    await waitForText(page, 'status', 'Saved locally.');
+    await page.getByRole('button', { name: 'Explore', exact: true }).click();
+    await page.getByRole('button', { name: 'New Project', exact: true }).click();
+    await page.getByLabel('Project name', { exact: true }).fill('Second project');
+    await page.getByRole('button', { name: 'Create project', exact: true }).click();
+    await waitForText(page, 'status', 'Saved locally.');
+    const second = await currentProject(page);
+    assert.notEqual(second.id, original.id);
+    assert.equal(second.name, 'Second project');
+    assert.equal(second.context, '');
+    for (const key of ['sources', 'categories', 'evidence', 'claims', 'relationships', 'dimensions',
+      'dimensionPositions', 'explorationNodes', 'explorationConnections', 'directions']) assert.deepEqual(second[key], []);
+    assert.equal(await page.getByRole('button', { name: 'Research', exact: true }).getAttribute('aria-current'), 'step');
+    await page.getByLabel('Project', { exact: true }).selectOption(original.id);
+    await waitForText(page, 'status', 'Saved locally.');
+    assert.deepEqual(await currentProject(page), original);
+    await page.reload();
+    await waitForText(page, 'status', 'Saved locally.');
+    assert.deepEqual(await currentProject(page), original);
+    await page.getByLabel('Project', { exact: true }).selectOption(second.id);
+    await waitForText(page, 'status', 'Saved locally.');
+    assert.deepEqual(await currentProject(page), second);
+    await page.getByRole('button', { name: 'New Project', exact: true }).click();
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    assert.deepEqual(await currentProject(page), second);
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });

@@ -82,13 +82,23 @@ export function createLocalPersistence(options: PersistenceOptions = {}) {
       // If any file fails, the project write rolls back in the same transaction.
       for (const assetId of deletedAssets) tx.objectStore(FILES).delete(assetId);
       for (const file of files) tx.objectStore(FILES).add(file.blob, file.id);
-      return tx.objectStore(PROJECTS).put(snapshot, CURRENT);
+      const projects = tx.objectStore(PROJECTS);
+      // Preserve the original single-project snapshot on the first multi-project save.
+      const previous = projects.get(CURRENT);
+      previous.onsuccess = () => {
+        if (previous.result?.id && previous.result.id !== snapshot.id) {
+          projects.put(previous.result, previous.result.id);
+        }
+        projects.put(snapshot, snapshot.id);
+        projects.put(snapshot, CURRENT);
+      };
+      return previous;
     });
   }
 
-  async function loadProject(): Promise<Project | null> {
+  async function loadProject(id?: EntityId<'project'>): Promise<Project | null> {
     const saved: unknown = await transaction([PROJECTS], 'readonly', tx =>
-      tx.objectStore(PROJECTS).get(CURRENT));
+      tx.objectStore(PROJECTS).get(id ?? CURRENT));
     if (saved === undefined) return null;
     assertProjectSnapshot(saved);
     return saved; // IndexedDB returns a structured clone, preserving the full model.
@@ -97,6 +107,15 @@ export function createLocalPersistence(options: PersistenceOptions = {}) {
   return {
     saveProject,
     loadProject,
+    async listProjects(): Promise<{ id: EntityId<'project'>; name: string }[]> {
+      const saved: unknown[] = await transaction([PROJECTS], 'readonly', tx => tx.objectStore(PROJECTS).getAll());
+      const projects = new Map<EntityId<'project'>, { id: EntityId<'project'>; name: string }>();
+      for (const value of saved) {
+        assertProjectSnapshot(value);
+        projects.set(value.id, { id: value.id, name: value.name });
+      }
+      return [...projects.values()];
+    },
     async saveFile(file: UploadedFile): Promise<void> {
       await transaction([FILES], 'readwrite', tx => tx.objectStore(FILES).add(file.blob, file.id));
     },

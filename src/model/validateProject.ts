@@ -28,6 +28,14 @@ export function assertProjectSnapshot(value: unknown): asserts value is Project 
     throw new Error('The saved project has an unsupported model version.');
   if (!entity(value) || typeof value.name !== 'string' || typeof value.context !== 'string')
     throw new Error('The saved project is invalid.');
+  if (value.exploration !== undefined) {
+    const exploration = value.exploration;
+    if (!record(exploration) || !Array.isArray(exploration.sessions) || !exploration.sessions.every(s => entity(s) && record(s) && Array.isArray(s.tuningSnapshot) && (s.name===undefined||typeof s.name==='string') && (s.expanded===undefined||typeof s.expanded==='boolean') && (s.position===undefined||(record(s.position)&&[s.position.x,s.position.y].every(n=>typeof n==='number'&&Number.isFinite(n)))))
+      || !exploration.sessions.some(s => record(s) && s.id === exploration.activeSessionId))
+      throw new Error('The saved exploration context is invalid.');
+  }
+  if (value.mapViews !== undefined && (!record(value.mapViews) || !Object.values(value.mapViews).every(v => record(v) && [v.x, v.y, v.scale].every(n => typeof n === 'number' && Number.isFinite(n)) && (v.scale as number) >= .2 && (v.scale as number) <= 2)))
+    throw new Error('The saved map view is invalid.');
   for (const key of collections) {
     if (!Array.isArray(value[key]) || !value[key].every(entity))
       throw new Error(`The saved project has an invalid ${key} collection.`);

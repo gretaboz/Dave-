@@ -30,7 +30,8 @@ test('demo is isolated, editable, persistent and never calls the AI endpoint', a
     await page.getByRole('alert').filter({hasText:'Demo project'}).waitFor();
     assert.equal(requests,0);
     await page.getByRole('button',{name:'Dimensions',exact:true}).click();
-    await page.getByText('Dimensions — To be redesigned', {exact:true}).waitFor();
+    await page.locator('.dimensions-workspace').getByRole('button', {name:'Show dimensions',exact:true}).waitFor();
+    await page.locator('.dimensions-workspace').getByRole('heading',{name:'Demo grip',exact:true}).waitFor();
     await page.getByRole('button',{name:'Research',exact:true}).click();
     await page.getByRole('button', { name: 'Live AI', exact: true }).click();
     await page.getByLabel('Project name', { exact: true }).fill('Real project');

@@ -10,7 +10,7 @@ before(async () => {
 });
 after(async () => { await browser?.close(); await server?.close(); });
 
-test('explicit analysis, category inspection, rename, reject, refresh and failed retry preserve research', async () => {
+test('explicit analysis, category inspection, rename, delete, refresh and failed retry preserve research', async () => {
   const context = await browser.newContext(); const page = await context.newPage();
   try {
     await page.goto(server.resolvedUrls.local[0]);
@@ -44,11 +44,13 @@ test('explicit analysis, category inspection, rename, reject, refresh and failed
     await page.getByRole('button', { name: 'Rename Finding the entrance' }).click();
     await page.getByLabel('Category name', { exact: true }).fill('Entrances');
     await page.getByRole('button', { name: 'Save name', exact: true }).click();
-    await page.getByRole('button', { name: 'Reject category' }).click();
+    assert.equal(await page.getByRole('button', { name: 'Reject category' }).count(), 0);
+    page.once('dialog', dialog => dialog.accept());
+    await page.getByRole('button', { name: 'Delete category Entrances' }).click();
     await page.getByRole('status').filter({ hasText: 'Saved locally.' }).waitFor();
     const before = await page.evaluate(async () => (await import('/src/state/projectStore.ts')).projectStore.getProject());
     await page.reload();
-    await page.getByText('No active categories.', { exact: true }).waitFor();
+    await page.getByText('No categories yet.', { exact: true }).waitFor();
     assert.equal(await page.getByRole('button', { name: 'Inspect Entrances' }).count(), 0);
     assert.equal(await page.getByLabel('Show rejected categories').count(), 0);
     await page.unroute('**/api/research/cluster');
