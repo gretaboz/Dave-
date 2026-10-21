@@ -7,6 +7,10 @@ function resolve<K extends string,C>(items:(Entity<K,C>&C)[],ref:EntityReference
   const item=items.find(i=>i.id===ref.id);
   return item?.revision===ref.revision?item:item?.history.find(h=>h.revision===ref.revision)?.content;
 }
+export function hasGeneratedDimensions(project:Project):boolean {
+  // Archived generated dimensions still count: removing one must not unlock another batch.
+  return project.dimensions.some(d=>!!d.generation);
+}
 export function prepareDimensions(project:Project):DimensionInput {
   const categories=project.categories.filter(c=>!c.archivedAt&&c.review?.state!=='rejected');
   const evidence=new Map<string,DimensionInput['evidence'][number]>();
@@ -40,6 +44,7 @@ export function prepareDimensions(project:Project):DimensionInput {
 }
 /** Validate the complete batch against current research before publishing any proposal. */
 export function applyDimensions(project:Project,input:DimensionInput,raw:unknown):{project:Project;count:number;warnings:string[]} {
+  if(hasGeneratedDimensions(project))throw new Error('Dimensions have already been generated for this project. You can edit the existing set.');
   if(JSON.stringify(prepareDimensions(project))!==JSON.stringify(input))throw new Error('Research or dimensions changed during generation. Nothing was added. Retry.');
   const output=validateDimensionOutput(raw,input);
   const metadata=raw as {model?:unknown;promptVersion?:unknown};

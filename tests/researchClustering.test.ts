@@ -9,7 +9,7 @@ function setup() {
   store.createProject({ name: 'Research', context: '' });
   const source = (title: string, text: string) => store.sources.add({ title, limitations: [], processingState: 'ready',
     originalFile: { id: crypto.randomUUID() as EntityId<'asset'>, filename: title, mediaType: 'text/plain' },
-    preparedContent: { format: 'txt', extractedAt: new Date().toISOString(), limitations: [], sections: [{ location: 'Paragraph 1', text }] } });
+    preparedContent: { format: 'txt', extractedAt: new Date().toISOString(), limitations: [], sections: text.split(' Seating').map((part, index) => ({ location: 'Paragraph ' + (index + 1), text: index ? 'Seating' + part : part })) } });
   source('Interview.txt', 'The entrance was hard to find. Seating was comfortable.');
   source('Observation.txt', 'Visitors asked where the entrance was.');
   return store;
@@ -20,8 +20,8 @@ test('cross-document categories and multiple themes preserve source ranges, edit
   const proposals = verifyProposals([
     { name: 'Finding the entrance', description: 'Accounts of locating the entrance.', passages: [
       { chunkId: chunks[0].id },
-      { chunkId: chunks[1].id }] },
-    { name: 'Seating', description: 'An account of seating comfort.', passages: [{ chunkId: chunks[0].id }] },
+      { chunkId: chunks[2].id }] },
+    { name: 'Seating', description: 'An account of seating comfort.', passages: [{ chunkId: chunks[1].id }] },
   ], chunks, store.getProject()!.sources);
   const added = store.addResearchAnalysis(proposals);
   assert.equal(added[0].passages!.length, 2);
@@ -78,4 +78,31 @@ test('regression: PDF whitespace and repeated wording no longer require AI quota
   assert.equal(sources[0].preparedContent!.sections[passage.sectionIndex].text.slice(passage.start, passage.end), original);
   assert.throws(() => verifyProposals([{ name: 'Topic', description: 'Topic', passages: [{ chunkId: chunks[0].id, quote: 'Paraphrased material' }] }], chunks, sources), /invalid passage selection/);
   assert.throws(() => verifyProposals([{ name: 'Topic', description: 'Topic', passages: [{ chunkId: chunks[0].id }] }], chunks, []), /stored source/);
+});
+
+test('generated clusters reject shared passages, duplicate names and excessive fragmentation', () => {
+  const store = setup(); const sources = store.getProject()!.sources; const chunks = prepareAnalysis(sources);
+  const first = { name: 'User needs', description: 'Research on use.', passages: [{ chunkId: chunks[0].id }] };
+  assert.throws(() => verifyProposals([first, { ...first, name: 'Usage contexts' }], chunks, sources), /overlapping/);
+  assert.throws(() => verifyProposals([first, { ...first, name: ' user   needs ', passages: [{ chunkId: chunks[1].id }] }], chunks, sources), /duplicate/);
+  assert.throws(() => verifyProposals(Array(7).fill(first), chunks, sources), /invalid categories/);
+});
+
+test('refresh archives only untouched proposals and preserves their provenance', () => {
+  const store = setup();
+  const proposal = (name: string) => ({ name, description: name, review: { state: 'proposed' as const } });
+  const [old, edited, accepted, rejected] = store.addResearchAnalysis(['Old', 'Edited', 'Accepted', 'Rejected'].map(proposal));
+  store.categories.update(edited.id, { name: 'My group' });
+  store.categories.update(accepted.id, { review: { state: 'accepted' } });
+  store.categories.update(rejected.id, { review: { state: 'rejected' } });
+  const manual = store.categories.add({ name: 'Manual', order: 10 });
+  store.addResearchAnalysis([proposal('Fresh')], { refreshProposals: true });
+  const categories = store.getProject()!.categories;
+  assert.ok(categories.find(c => c.id === old.id)!.archivedAt);
+  assert.equal(categories.find(c => c.id === old.id)!.name, 'Old');
+  for (const id of [edited.id, accepted.id, rejected.id, manual.id])
+    assert.equal(categories.find(c => c.id === id)!.archivedAt, undefined);
+  const before = store.getProject();
+  assert.throws(() => store.addResearchAnalysis([{ name: 'Invalid', passages: [{ source: { id: 'missing' as EntityId<'source'>, revision: 1 }, sectionIndex: 0, start: 0, end: 5 }] }], { refreshProposals: true }));
+  assert.deepEqual(store.getProject(), before);
 });

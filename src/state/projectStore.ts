@@ -304,7 +304,7 @@ export function createProjectStore() {
         });
       },
     },
-    addResearchAnalysis(inputs: M.ResearchCategoryContent[]): M.ResearchCategory[] {
+    addResearchAnalysis(inputs: M.ResearchCategoryContent[], options: { refreshProposals?: boolean } = {}): M.ResearchCategory[] {
       // Validate the entire response before publishing any of it.
       inputs.forEach(input => validate('categories', { ...input, order: 0 }));
       const state = current();
@@ -314,7 +314,12 @@ export function createProjectStore() {
         ...structuredClone(input), id: id<'research_category'>(), origin: 'dave',
         createdAt: time, updatedAt: time, revision: 1, history: [], order: order + index,
       }));
-      publish({ ...state, categories: [...state.categories, ...categories] });
+      // Archive superseded, untouched proposals rather than deleting provenance.
+      // Designer-created, edited, accepted and rejected groups remain under their control.
+      const previous = options.refreshProposals && categories.length ? state.categories.map(category =>
+        !category.archivedAt && category.origin === 'dave' && category.review?.state === 'proposed'
+          ? { ...category, archivedAt: time, updatedAt: time } : category) : state.categories;
+      publish({ ...state, categories: [...previous, ...categories] });
       return structuredClone(categories);
     },
     evidence: operations('evidence'),

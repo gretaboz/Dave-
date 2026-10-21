@@ -35,7 +35,7 @@ test('explicit analysis, category inspection, rename, delete, refresh and failed
     assert.equal(calls, 0);
     assert.equal(await page.getByText('The entrance was hard to find.', { exact: true }).count(), 0);
     await page.getByRole('button', { name: 'Analyse research', exact: true }).click();
-    await page.getByText('1 new categories proposed.', { exact: false }).waitFor();
+    await page.getByText('1 categories proposed.', { exact: false }).waitFor();
     await page.getByRole('button', { name: 'Inspect Finding the entrance' }).click();
     await page.getByText('The entrance was hard to find.', { exact: true }).waitFor();
     await page.getByText('Visitors asked where the entrance was.', { exact: true }).waitFor();

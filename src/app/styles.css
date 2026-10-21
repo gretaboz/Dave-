@@ -624,3 +624,24 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 .project-controls { display: flex; align-items: center; gap: .75rem; margin-bottom: .75rem; flex-wrap: wrap; }
 .project-controls select { max-width: 24rem; padding: .5rem; font: inherit; }
+
+/* Provenance stays visible; selecting a dimension brings its links forward. */
+.dimension-map-association {
+  stroke: #7891a6;
+  stroke-width: 1.4;
+  opacity: .32;
+  vector-effect: non-scaling-stroke;
+  transition: opacity 160ms ease, stroke-width 160ms ease;
+}
+.dimension-map-association[data-active="true"] {
+  stroke: #476c8d;
+  stroke-width: 2.4;
+  opacity: .95;
+}
+.dimension-card[data-selected="true"] {
+  outline: 2px solid #7891a6;
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dimension-map-association { transition: none; }
+}

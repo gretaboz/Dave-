@@ -68,6 +68,7 @@ export interface Project extends Entity<'project', ProjectContent>, ProjectConte
   modelVersion: 1;
   /** Optional additions keep existing version-1 projects readable. */
   exploration?: { sessions: ExplorationSession[]; activeSessionId: EntityId<'exploration_session'> };
+  relationshipResearchKey?: string;
   mapViews?: Partial<Record<MapStage, MapViewport>>;
   sources: Source[];
   categories: ResearchCategory[];

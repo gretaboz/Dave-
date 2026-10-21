@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
 import {createServer} from 'vite';
-test('generated dimensions are immediately editable and tunable, retain evidence and edits, regenerate safely, and survive failure and refresh',async()=>{
+test('generated dimensions are immediately editable and tunable, retain evidence and edits, remain locked after generation and survive refresh',async()=>{
  const {chromium}=await import(process.env.DAVE_PLAYWRIGHT_MODULE??'playwright');
  const server=await createServer({server:{host:'127.0.0.1',port:5201,strictPort:false}});await server.listen();
  const browser=await chromium.launch({headless:true,executablePath:process.env.DAVE_BROWSER_EXECUTABLE});
@@ -56,17 +56,12 @@ test('generated dimensions are immediately editable and tunable, retain evidence
  await saved();await page.reload();await page.getByRole('button',{name:'Dimensions',exact:true}).click();
  let p=await snapshot();assert.equal(p.dimensions[1].origin,'dave_edited_by_researcher');assert.equal(p.dimensions[1].review.state,'proposed');assert.ok(p.dimensions[2].archivedAt);assert.equal(p.dimensionPositions[1].value,1);assert.equal(p.dimensions[1].history[0].content.name,'Assistance');
  const preserved=await snapshot();
- await generate();await page.getByRole('status').filter({hasText:'0 new proposals'}).waitFor();assert.deepEqual(await snapshot(),preserved);
- invalid=true;await generate();await page.getByRole('alert').filter({hasText:'unavailable claim'}).waitFor();assert.deepEqual(await snapshot(),preserved);invalid=false;
- empty=true;await generate();await page.getByRole('status').filter({hasText:'Insufficient context'}).waitFor();assert.deepEqual(await snapshot(),preserved);empty=false;
- fail=true;await generate();await page.getByRole('alert').filter({hasText:'Synthetic API failure'}).waitFor();assert.deepEqual(await snapshot(),preserved);fail=false;
- // Research changes during a request must invalidate the result atomically.
- release={};const requested=requests;await generate();await page.waitForFunction(()=>document.querySelector('.dimensions-workspace button[disabled]')?.textContent==='Generating dimensions…');
- while(requests===requested)await new Promise(r=>setTimeout(r,10));
- await page.evaluate(async()=>{(await import('/src/state/projectStore.ts')).projectStore.updateProject({context:'Changed during generation'});});
- while(!release.resolve)await new Promise(r=>setTimeout(r,10));release.resolve();
- await page.getByRole('alert').filter({hasText:'changed during generation'}).waitFor();
- p=await snapshot();assert.deepEqual(p.dimensions,preserved.dimensions);assert.deepEqual(p.dimensionPositions,preserved.dimensionPositions);
+ const generatedButton=page.getByRole('button',{name:'Dimensions generated',exact:true});
+ assert.equal(await generatedButton.isDisabled(),true);
+ const previousRequests=requests;
+ await generatedButton.evaluate(button=>button.click());
+ assert.equal(requests,previousRequests);
+ assert.deepEqual(await snapshot(),preserved);
  for(const key of ['claims','evidence','categories','sources'])assert.deepEqual(p[key],initial[key]);
  await page.getByRole('button',{name:'Show dimensions',exact:true}).click();await page.getByRole('button',{name:'Add dimension',exact:true}).click();await page.getByLabel('Title',{exact:true}).waitFor();
  assert.deepEqual(errors,[]);

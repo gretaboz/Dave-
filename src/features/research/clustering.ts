@@ -47,17 +47,26 @@ export function prepareAnalysis(sources: Source[]): AnalysisChunk[] {
 
 /** Model selects IDs only; every range is checked against the stored source revision. */
 export function verifyProposals(value: unknown, chunks: AnalysisChunk[], sources: Source[]): ResearchCategoryContent[] {
-  if (!Array.isArray(value) || value.length > 20) throw new Error('The model returned invalid categories. Please retry.');
+  if (!Array.isArray(value) || value.length > 6) throw new Error('The model returned invalid categories. Please retry.');
+  const names = new Set<string>();
+  const assigned = new Set<string>();
   return value.map(raw => {
     const category = raw as ClusterProposal;
     if (!category || typeof category.name !== 'string' || !category.name.trim() || category.name.length > 120
       || typeof category.description !== 'string' || !category.description.trim() || category.description.length > 1500
       || !Array.isArray(category.passages) || !category.passages.length || category.passages.length > 100)
       throw new Error('The model returned an incomplete category. Please retry.');
+    const name = category.name.trim().toLocaleLowerCase().replace(/\s+/g, ' ');
+    if (names.has(name)) throw new Error('The model returned duplicate category names. No categories were added. Please retry.');
+    names.add(name);
     const seen = new Set<string>();
+    const local = new Set<string>();
     const passages = category.passages.map(selection => {
       if (!selection || typeof selection.chunkId !== 'string' || Object.keys(selection).length !== 1)
         throw new Error('The model returned an invalid passage selection. No categories were added. Please retry.');
+      if (assigned.has(selection.chunkId))
+        throw new Error('The model returned overlapping categories that share a passage. No categories were added. Please retry.');
+      local.add(selection.chunkId);
       const chunk = chunks.find(item => item.id === selection.chunkId);
       if (!chunk) throw new Error('An AI selection refers to an unknown research passage. No categories were added. Please retry.');
       const source = sources.find(item => item.id === chunk.sourceId && !item.archivedAt);
@@ -74,6 +83,7 @@ export function verifyProposals(value: unknown, chunks: AnalysisChunk[], sources
       if (seen.has(key)) return false;
       seen.add(key); return true;
     });
+    for (const id of local) assigned.add(id);
     return { name: category.name.trim(), description: category.description.trim(), passages, review: { state: 'proposed' } };
   });
 }

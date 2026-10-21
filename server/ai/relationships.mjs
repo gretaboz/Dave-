@@ -11,13 +11,24 @@ export function validateInput(input) {
 const text = (v, max = 2000) => typeof v === 'string' && v.length <= max;
 const strings = v => Array.isArray(v) && v.length <= 30 && v.every(x => text(x));
 export function validateClaims(output, chunks) {
-  if (!output || !strings(output.warnings) || !Array.isArray(output.claims) || output.claims.length > 16) throw new Error('Invalid claim output. Nothing was added.');
+  if (!output || !strings(output.warnings) || !Array.isArray(output.claims) || output.claims.length > 100) throw new Error('Invalid claim output. Nothing was added.');
   const ids = new Set();
   for (const c of output.claims) {
     if (!c || !text(c.id, 100) || !c.id || ids.has(c.id) || !text(c.statement) || !c.statement.trim() || !text(c.context) || !text(c.stakeholder) || !strings(c.limitations) || !strings(c.passageIds) || !c.passageIds.length || c.passageIds.some(id => !chunks.some(p => p.id === id))) throw new Error('Invalid claim or unknown passage reference. Nothing was added.');
     ids.add(c.id);
   }
-  return output;
+  const counts=new Map();
+  let omitted=0;
+  const claims=output.claims.filter(c=>{
+    const categories=new Set(c.passageIds.flatMap(id=>{
+      const p=chunks.find(p=>p.id===id);
+      return p.categoryReferences?.map(ref=>ref.id)??p.categories;
+    }));
+    if([...categories].some(id=>(counts.get(id)??0)>=10)){omitted++;return false;}
+    for(const id of categories)counts.set(id,(counts.get(id)??0)+1);
+    return true;
+  });
+  return {...output,claims,warnings:[...output.warnings,...(omitted?['Additional claims were omitted to keep each category within 10 focused claims.']:[])]};
 }
 export function validateRelationships(output, claims) {
   if (!output || !strings(output.warnings) || !Array.isArray(output.relationships) || output.relationships.length > 16) throw new Error('Invalid relationship output. Nothing was added.');
@@ -47,7 +58,17 @@ export async function analyseRelationships(input, { apiKey, model = 'gpt-4.1-min
   validateInput(input);
   if (!apiKey) throw new Error('OpenAI is not configured on the server.');
   const options = { apiKey, model, fetchImpl };
-  const claims = validateClaims(await request(claimInstructions, claimSchema, input, options), input.chunks);
-  const relationships = claims.claims.length < 2 ? { relationships: [], warnings: ['Fewer than two grounded claims; no relationships proposed.'] } : validateRelationships(await request(relationshipInstructions, relationshipSchema, { context: input.context, claims: claims.claims, passages: input.chunks }, options), claims.claims);
+  const claims = validateClaims(await request(claimInstructions, {...claimSchema,properties:{...claimSchema.properties,claims:{...claimSchema.properties.claims,maxItems:Math.min(100,Math.max(1,new Set(input.chunks.flatMap(p=>p.categoryReferences?.map(c=>c.id)??p.categories)).size)*10)}}}, input, options), input.chunks);
+  let relationships={relationships:[],warnings:['Fewer than two grounded claims; no relationships proposed.']};
+  if(claims.claims.length>=2){
+    const raw=await request(relationshipInstructions, relationshipSchema, { context: input.context, claims: claims.claims, passages: input.chunks }, options);
+    if(!raw||!Array.isArray(raw.relationships)||raw.relationships.length>16||!strings(raw.warnings))throw new Error('Invalid relationship output. Nothing was added.');
+    const verified=[];let omitted=0;
+    for(const r of raw.relationships){
+      try{validateRelationships({relationships:[r],warnings:[]},claims.claims);verified.push(r);}
+      catch{omitted++;}
+    }
+    relationships={relationships:verified,warnings:[...raw.warnings,...(omitted?['Some proposed relationships lacked valid supporting evidence and were omitted. The grounded claims are kept.']:[])]};
+  }
   return { claims: claims.claims, relationships: relationships.relationships, warnings: [...claims.warnings, ...relationships.warnings], model, promptVersion: PROMPT_VERSION };
 }
