@@ -3,8 +3,9 @@ import { useState } from 'react';
 import { RelationshipsWorkspace } from '../features/relationships/RelationshipsWorkspace';
 import { ProjectWorkspace } from './ProjectWorkspace';
 import { ResearchModes, ResearchProjectScope, initialResearchMode } from '../features/research/ResearchModes';
+import {DirectionsWorkspace} from '../features/directions/DirectionsWorkspace';
 
-const stages = ['Research', 'Relationships', 'Dimensions', 'Explore', 'Directions'] as const;
+const stages = ['Research', 'Relationships', 'Dimensions', 'Directions', 'Explore'] as const;
 
 export function App() {
   const [researchMode, setResearchMode] = useState(initialResearchMode);
@@ -46,6 +47,7 @@ export function App() {
         <div hidden={activeStage==='Directions'||(activeStage==='Research'&&!showResearchMap)}>
           <DimensionsWorkspace mode={researchMode} stage={activeStage==='Directions'?'Explore':activeStage} onExplore={()=>setActiveStage('Explore')} />
         </div>
+        {activeStage==='Directions'&&<DirectionsWorkspace onExplore={()=>setActiveStage('Explore')}/>}
       </main></ResearchProjectScope>
     </div>
   );
