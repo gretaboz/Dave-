@@ -212,6 +212,27 @@ export interface DimensionContent {
   relationships: EntityReference<'relationship'>[];
   limitations: Limitations;
   review: Review;
+  /** Designer-owned convergence state. AI generation must leave this proposed. */
+  directionReview?: DirectionParameterReview;
+}
+
+export type DirectionParameterReviewState = 'proposed' | 'included' | 'excluded' | 'deferred';
+export type DirectionParameterVariability = 'fixed' | 'adjustable';
+
+export interface DirectionParameterReview {
+  state: DirectionParameterReviewState;
+  variability?: DirectionParameterVariability;
+  orientation: {
+    status: 'undecided' | 'designer_set';
+    /** Free text by design: a direction is not limited to three preset positions. */
+    text?: string;
+    rationale?: string;
+  };
+  /** Why the parameter belongs in the decision space. */
+  relevanceEvidence: EntityReference<'evidence'>[];
+  /** Evidence, if any, for the designer's chosen orientation. Kept separate from relevance. */
+  orientationEvidence: EntityReference<'evidence'>[];
+  challenges: string[];
 }
 
 export interface Dimension extends Entity<'dimension', DimensionContent>, DimensionContent {}
@@ -313,6 +334,25 @@ export interface DirectionContent {
   explorationNodes: EntityReference<'exploration_node'>[];
   references: ResearchReferences;
   tuningSnapshot: TuningSnapshot[];
+  limitations: Limitations;
+  /** Present on the new designer-confirmed Directions vertical slice. */
+  parameterSnapshot?: DirectionParameterSnapshot[];
+  confirmedAt?: Timestamp;
+  parentDirection?: EntityReference<'direction'>;
+}
+
+export interface DirectionParameterSnapshot {
+  dimension: EntityReference<'dimension'>;
+  name: string;
+  description: string;
+  origin: Origin;
+  reviewState: Exclude<DirectionParameterReviewState, 'proposed'>;
+  variability?: DirectionParameterVariability;
+  orientation: DirectionParameterReview['orientation'];
+  relevanceEvidence: EntityReference<'evidence'>[];
+  orientationEvidence: EntityReference<'evidence'>[];
+  researchPassages: {category: EntityReference<'research_category'>; passage: ResearchPassage}[];
+  challenges: string[];
   limitations: Limitations;
 }
 

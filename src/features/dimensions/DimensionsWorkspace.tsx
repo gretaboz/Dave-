@@ -95,7 +95,8 @@ export function DimensionsWorkspace({mode='live',stage='Dimensions',onExplore}:{
   const matchingBranch=matchingExplorationBranch(project);
   const matchHint=matchingBranch ? `This tuning already exists in ${branchName(project,matchingBranch)}. Change tuning to create a new branch.` : undefined;
   const allDimensions=project.dimensions.filter(d=>!d.archivedAt);
-  const dimensions = allDimensions.filter(d=>d.review.state!=='rejected');
+  // Parameters created in Directions do not enter the legacy three-position UI.
+  const dimensions = allDimensions.filter(d=>d.review.state!=='rejected'&&(!d.directionReview||(d.lowLabel.trim()&&d.highLabel.trim())));
   const dimension = allDimensions.find(d => d.id === editing);
   const selected = selection?.kind === 'claim' ? project.claims.find(c => c.id === selection.id) : project.relationships.find(r => r.id === selection?.id);
   const inspected = project.dimensions.find(d => d.id === associated);
