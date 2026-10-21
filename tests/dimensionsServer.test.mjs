@@ -7,7 +7,7 @@ export const proposal=()=>({name:'Mechanical assistance',explanation:'Different 
 const response=output=>async(_url,options)=>{const body=JSON.parse(options.body);assert.equal(body.store,false);assert.match(body.instructions,/never undecided/);return {ok:true,json:async()=>({status:'completed',model:'test-model',output:[{content:[{type:'output_text',text:JSON.stringify({...output,dimensions:output.dimensions.map(({passages,...d})=>({...d,passageIds:passages.map(ref=>JSON.parse(body.input).passages.find(p=>p.categoryId===ref.categoryId&&p.revision===ref.revision&&p.index===ref.index)?.id??'unavailable')}))})}]}]})};};
 test('valid proposals reference existing evidence and use the separate OpenAI task',async()=>{
  const result=await generateDimensions(input(),{apiKey:'test-only',fetchImpl:response({dimensions:[proposal()],warnings:[]})});
- assert.equal(result.dimensions.length,1);assert.equal(result.promptVersion,'dimensions-4');
+ assert.equal(result.dimensions.length,1);assert.equal(result.promptVersion,'dimensions-5');
 });
 test('fabricated references and incomplete or meaningless positions reject the whole batch',()=>{
  for(const patch of [{claimIds:['invented']},{relationshipIds:['invented']},{evidenceIds:['invented']},{passages:[{categoryId:'cat-1',revision:2,index:0}]},{midLabel:'Manual'},{highExplanation:''},{claimIds:[],relationshipIds:[],evidenceIds:[],passages:[]}])assert.throws(()=>validateDimensionOutput({dimensions:[proposal(),{...proposal(),name:'Second dimension',...patch}],warnings:[]},input()));
@@ -83,4 +83,10 @@ test('all reference fields are constrained to their respective catalogues and du
  assert.deepEqual(p,before);
  for(const [key,id] of [['claimIds','claim-999'],['relationshipIds','relationship-999'],['evidenceIds','evidence-999']])
    assert.throws(()=>validateDimensionOutput({dimensions:[{...proposal(),[key]:[id]}],warnings:[]},original),/unavailable .* reference/);
+});
+
+test('dimension output allows seven distinct choices and rejects an eighth',()=>{
+ const dimensions=Array.from({length:7},(_,i)=>({...proposal(),name:'Choice '+i,lowLabel:'Low '+i,midLabel:'Middle '+i,highLabel:'High '+i}));
+ assert.equal(validateDimensionOutput({dimensions,warnings:[]},input()).dimensions.length,7);
+ assert.throws(()=>validateDimensionOutput({dimensions:[...dimensions,{...proposal(),name:'Extra'}],warnings:[]},input()),/Invalid dimension response/);
 });

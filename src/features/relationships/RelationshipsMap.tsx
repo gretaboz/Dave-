@@ -1,8 +1,8 @@
 import { categoryStyle } from '../../app/categoryStyles';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { PointerEvent, ReactNode } from 'react';
 import type { MapStage, MapViewport, Project } from '../../model/types';
-import { CARD_HEIGHT, CARD_WIDTH, deriveMap, layeredRelationshipRoute } from './mapLayout';
+import { CARD_HEIGHT, CARD_WIDTH, claimCategories, deriveMap, layeredRelationshipRoute } from './mapLayout';
 import { relationshipLabels, relationshipType, relationshipBrief } from './presentation';
 import type { Point } from './mapLayout';
 export type MapSelection = {kind:'claim' | 'relationship';id:string};
@@ -13,8 +13,9 @@ export function RelationshipsMap({project,selection,onSelect,onMove,onReorganise
   stage?:MapStage; onViewChange?:(stage:MapStage,view:MapViewport)=>void;
   focusRequest?:{dimensionId?:string;point?:Point;token:number};
   exploration?:{content:(scale:number)=>ReactNode;focus?:Point;bounds:{x:number;y:number;width:number;height:number}};
-  extension?:{content:ReactNode;height:number;selectedDimensionId?:string|null;associations?:(MapSelection & {dimensionId:string})[]};
+  extension?:{content:ReactNode;height:number;selectedDimensionId?:string|null;associations?:{kind:'claim'|'relationship'|'category';id:string;dimensionId:string}[]};
 }) {
+  const associationMarkerId = useId().replaceAll(':', '');
   const [expandedClaimId,setExpandedClaimId]=useState<string|null>(null);
   const map=deriveMap(project,{expandedClaimId});
   const [view,setView]=useState<MapViewport>(()=>project.mapViews?.[stage] ?? {x:20,y:20,scale:.85});
@@ -117,12 +118,23 @@ export function RelationshipsMap({project,selection,onSelect,onMove,onReorganise
     {exploration?.content(view.scale)}
     {map.regions.map((r,i)=><section key={r.id} className={`map-category map-category-${r.id==='unassigned'?'neutral':i%4}`} style={{...categoryStyle(project,r.id),left:r.x,top:r.y,width:r.width,height:r.height}} aria-label={`Category: ${r.name}`}><h3>{r.name}</h3>{!r.members.length && <p>No grounded claims in this category yet.</p>}</section>)}
     
-    {extension?.associations && <svg className="map-edges" width="1" height="1" overflow="visible">{extension.associations.map(a=>{
-      const p=a.kind==='claim'?map.positions.get(a.id):relationshipPositions.get(a.id);
+    {extension?.associations && <svg className="map-edges" width="1" height="1" overflow="visible"><defs><marker id={associationMarkerId} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="context-stroke" strokeWidth="1.5" /></marker></defs>{extension.associations.map(a=>{
+      const current=a.kind==='claim'?map.positions.get(a.id):a.kind==='relationship'?relationshipPositions.get(a.id):undefined;
+      // A compact claim overview must not erase provenance to earlier findings.
+      // Anchor those links at their research category; the dimension inspector
+      // continues to show the exact original finding and revision.
+      const earlierClaim=a.kind==='claim'?project.claims.find(c=>c.id===a.id):undefined;
+      const earlierRelationship=a.kind==='relationship'?project.relationships.find(r=>r.id===a.id):undefined;
+      const categoryIds=earlierClaim?claimCategories(project,earlierClaim):earlierRelationship?.claims.flatMap(ref=>{
+        const c=project.claims.find(c=>c.id===ref.claim.id);
+        return c?claimCategories(project,c):[];
+      })??[];
+      const region=a.kind==='category'?map.regions.find(r=>r.id===a.id):!current?map.regions.find(r=>categoryIds.includes(r.id))??map.regions.find(r=>r.id==='unassigned'):undefined;
+      const p=region?{x:region.x+region.width,y:region.y+region.headerHeight/2}:current;
       const targetY=dimensionY[a.dimensionId];
       if(!p || targetY===undefined)return null;
-      const x=p.x+(a.kind==='claim'?CARD_WIDTH:210),y=p.y+(a.kind==='claim'?(map.heights.get(a.id)??80)/2:50);
-      return <path key={`${a.dimensionId}-${a.kind}-${a.id}`} data-association-from={a.id} data-association-to={a.dimensionId} opacity={extension.selectedDimensionId===a.dimensionId?.72:.13} d={`M ${x} ${y} C 900 ${y}, 920 ${targetY}, 1000 ${targetY}`} fill="none" stroke="#91b0d2" strokeWidth="2" strokeDasharray="4 5"/>;
+      const x=p.x+(region?0:a.kind==='claim'?CARD_WIDTH:210),y=p.y+(region?0:a.kind==='claim'?(map.heights.get(a.id)??80)/2:50);
+      return <path key={`${a.dimensionId}-${a.kind}-${a.id}`} data-association-earlier={!current && a.kind!=='category' ? true : undefined} data-association-from={a.id} data-association-to={a.dimensionId} className="dimension-map-association" data-active={extension.selectedDimensionId===a.dimensionId} markerEnd={`url(#${associationMarkerId})`} d={`M ${x} ${y} C 900 ${y}, 920 ${targetY}, 1000 ${targetY}`} fill="none"><title>{!current && a.kind!=='category' ? 'Earlier associated finding, grouped at its research category. Select the dimension to inspect the original finding.' : 'Associated research. Select the dimension to inspect.'}</title></path>;
     })}</svg>}
     <svg className="map-edges" width="1" height="1" overflow="visible">{edges.map(({r,ref,port,route})=><g key={`${r.id}-${port}`} className={`map-edge ${relationshipType(r.type)==='potential_tension'?'map-edge-tension':''}`} opacity={faded(r.id,'relationship')?.16:.55} data-from={ref.claim.id} data-to={r.id}><path d={route.path}/><circle cx={route.from.x} cy={route.from.y} r={3}/><circle cx={route.to.x} cy={route.to.y} r={3}/></g>)}</svg>
     {map.claims.map(c=>{const p=point(c.id);const expanded=expandedClaimId===c.id;return <article key={c.id} className="map-node map-claim map-compact-claim" data-map-id={c.id} data-selected={selection?.id===c.id} style={{left:p.x,top:p.y,minHeight:map.heights.get(c.id),opacity:faded(c.id,'claim')?.55:1}} onPointerDown={e=>start(e,{kind:'claim',id:c.id})}><button className="map-claim-heading" aria-label={`${c.statement} ${label(c.review.state)}`} aria-expanded={expanded} onClick={e=>{if(e.detail===0){setExpandedClaimId(id=>id===c.id?null:c.id);onSelect({kind:'claim',id:c.id});}}}><strong>{map.labels.get(c.id)}</strong></button>{expanded&&<><p className="map-expanded-interpretation" onPointerDown={e=>e.stopPropagation()}>{c.statement}</p><button className="research-text-button" onPointerDown={e=>e.stopPropagation()} onClick={()=>onSelect({kind:'claim',id:c.id})}>Inspect research</button></>}<small>{c.origin==='researcher'?'Designer interpretation':'AI interpretation'}</small></article>;})}

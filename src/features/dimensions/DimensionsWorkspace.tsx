@@ -1,3 +1,4 @@
+import { hasGeneratedDimensions } from './generation';
 import { useCallback, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Claim, Dimension, DimensionContent, MapStage, MapViewport, Project, Relationship } from '../../model/types';
@@ -108,7 +109,7 @@ export function DimensionsWorkspace({mode='live',stage='Dimensions',onExplore}:{
     store.restoreProject(confirmReviewedExploration(store.getProject()!,settings));onExplore?.();focusConfirmedBranch();
   }); }
   async function generate() {
-    if(requestBusy.current)return;
+    if(requestBusy.current || hasGeneratedDimensions(store.getProject()!))return;
     if(mode==='demo'){setError('AI generation is available in Live AI mode. Manual dimensions remain available in Demo.');return;}
     requestBusy.current=true;setBusy(true);setError('');setMessage('');
     try {
@@ -131,7 +132,7 @@ export function DimensionsWorkspace({mode='live',stage='Dimensions',onExplore}:{
       const position = project.dimensionPositions.find(p => p.dimension.id === d.id && !p.archivedAt);
       // Older continuous or undecided values stay untouched until the designer selects a new position.
       const index: number = position ? position.value === 0 ? 0 : position.value === .5 ? 1 : position.value === 1 ? 2 : -1 : (d.draftPosition ?? 0) + 1;
-      return <article className="dimension-card" key={d.id} data-dimension-id={d.id} tabIndex={0} aria-label={`Dimension: ${d.name}`}
+      return <article className="dimension-card" key={d.id} data-dimension-id={d.id} data-selected={associated === d.id} tabIndex={0} aria-label={`Dimension: ${d.name}`}
         onClick={event=>{if(!(event.target as HTMLElement).closest('button,input,textarea,summary,a')){setAssociated(d.id);setEditing(null);setSelection(null);}}}
         onKeyDown={event=>{if(event.target===event.currentTarget&&(event.key==='Enter'||event.key===' ')){event.preventDefault();setAssociated(d.id);setEditing(null);setSelection(null);}}}>
         <div className="dimension-area-heading"><h4>{d.name}</h4><button className="research-text-button" aria-label={`Edit ${d.name}`} onClick={() => { setEditing(d.id); setAssociated(null); }}>Edit</button></div>
@@ -159,7 +160,8 @@ export function DimensionsWorkspace({mode='live',stage='Dimensions',onExplore}:{
     {matchHint&&<p id="tuning-match-top" className="relationship-map-help" role="status">{matchHint}</p>}
     {error && <p className="project-error" role="alert">{error}</p>}
     <p>Add design considerations, connect relevant findings, and choose a position for each.</p>
-    <button className="project-button" disabled={busy} onClick={()=>void generate()}>{busy?'Generating dimensions…':'Generate dimensions'}</button>
+    <button className="project-button" disabled={busy || hasGeneratedDimensions(project)} onClick={()=>void generate()}>{busy?'Generating dimensions…':hasGeneratedDimensions(project)?'Dimensions generated':'Generate dimensions'}</button>
+    {hasGeneratedDimensions(project) && <p className="relationship-map-help">Your generated set is saved. You can edit or remove dimensions as you work.</p>}
     <p className="relationship-map-help">Dimensions use source excerpts and interpretations. Tune them immediately, or edit and remove them as you work.</p>
     {message && <p role="status">{message}</p>}
     </>}
@@ -168,7 +170,14 @@ export function DimensionsWorkspace({mode='live',stage='Dimensions',onExplore}:{
     {stage!=='Dimensions' && error && <p role="alert">{error}</p>}
     <div className="relationships-layout relationships-map-layout">
       <RelationshipsMap key={project.id} readOnly={stage!=='Relationships'} stage={stage} onViewChange={onViewChange} focusRequest={focusRequest} exploration={exploration.hasContent || stage==='Explore' ? {content:exploration.content,bounds:exploration.bounds,focus:exploration.focus} : undefined} project={project} selection={selection} onSelect={s => { setSelection(s); setEditing(null); setAssociated(null); }}
-        onMove={(node,mapPosition)=>attempt(()=>{if(node.kind==='claim')store.claims.update(node.id as Claim['id'],{mapPosition});else store.relationships.update(node.id as Relationship['id'],{mapPosition});})} onReorganise={positions=>attempt(()=>store.setClaimMapPositions([...positions].map(([id,position])=>({id:id as Claim['id'],position}))))} extension={{ content: cards, height: 200 + dimensions.length * 400, selectedDimensionId:associated, associations: dimensions.filter(d=>!d.generation).flatMap(d=>[...d.claims.map(r=>({kind:'claim' as const,id:r.id,dimensionId:d.id})),...d.relationships.map(r=>({kind:'relationship' as const,id:r.id,dimensionId:d.id}))]) }} />
+        onMove={(node,mapPosition)=>attempt(()=>{if(node.kind==='claim')store.claims.update(node.id as Claim['id'],{mapPosition});else store.relationships.update(node.id as Relationship['id'],{mapPosition});})} onReorganise={positions=>attempt(()=>store.setClaimMapPositions([...positions].map(([id,position])=>({id:id as Claim['id'],position}))))} extension={{ content: cards, height: 200 + dimensions.length * 400, selectedDimensionId:associated, associations: dimensions.flatMap(d=>[
+          ...d.claims.map(r=>({kind:'claim' as const,id:r.id,dimensionId:d.id})),
+          ...d.relationships.map(r=>({kind:'relationship' as const,id:r.id,dimensionId:d.id})),
+          ...[...new Set([
+            ...(d.researchPassages??[]).map(p=>p.category.id),
+            ...(d.evidence??[]).flatMap(ref=>project.evidence.find(e=>e.id===ref.id&&e.revision===ref.revision)?.categories?.map(c=>c.id)??[]),
+          ])].map(id=>({kind:'category' as const,id,dimensionId:d.id})),
+        ]) }} />
       <aside aria-label={stage==='Relationships'?'Evidence inspector':'Dimension and research inspector'}>
         {exploration.editor}
         {editing && <DimensionEditor key={editing} project={project} dimension={dimension} onClose={() => setEditing(null)} onRemove={() => attempt(() => { if (dimension) store.dimensions.remove(dimension.id); setEditing(null); })}

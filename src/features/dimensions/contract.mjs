@@ -23,7 +23,7 @@ export function validateDimensionInput(input) {
 }
 export function validateDimensionOutput(output,input) {
   validateDimensionInput(input);
-  if(!output||!Array.isArray(output.dimensions)||output.dimensions.length>6||!Array.isArray(output.warnings)||output.warnings.length>30||output.warnings.some(w=>!text(w)))throw new Error('Invalid dimension response. Nothing was added.');
+  if(!output||!Array.isArray(output.dimensions)||output.dimensions.length>7||!Array.isArray(output.warnings)||output.warnings.length>30||output.warnings.some(w=>!text(w)))throw new Error('Invalid dimension response. Nothing was added.');
   const seen=new Set(input.existingDimensions.map(d=>normal(d.name)));
   const signatures=new Set(input.existingDimensions.filter(d=>d.lowLabel&&d.midLabel&&d.highLabel).map(d=>[d.lowLabel,d.midLabel,d.highLabel].map(normal).sort().join('|')));
   const endpoints=new Set(input.existingDimensions.filter(d=>d.lowLabel&&d.highLabel).map(d=>[d.lowLabel,d.highLabel].map(normal).sort().join('|')));

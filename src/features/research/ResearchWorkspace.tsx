@@ -78,7 +78,7 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
       const skipped = sources.filter(source => source.processingState !== 'ready' || !source.preparedContent).length;
       const response = await fetch('/api/research/cluster', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chunks, context: project!.context }), signal: AbortSignal.timeout(100_000),
+        body: JSON.stringify({ chunks, context: project!.context }), signal: AbortSignal.timeout(190_000),
       });
       if (!response.headers.get('content-type')?.includes('application/json'))
         throw new Error('The AI server is unavailable. Start the DAVE server and retry.');
@@ -92,12 +92,12 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
         throw new Error('The research changed during analysis. No categories were added. Please retry.');
       const inputs = verifyProposals(result.categories, chunks, latest.sources);
       const analysis = { id: crypto.randomUUID(), model: result.model, promptVersion: result.promptVersion, analysedAt: new Date().toISOString() };
-      const added = inputs.length ? store.addResearchAnalysis(inputs.map(input => ({ ...input, analysis }))) : [];
+      const added = inputs.length ? store.addResearchAnalysis(inputs.map(input => ({ ...input, analysis })), { refreshProposals: true }) : [];
       if (added.length) { setSelectedCategoryId(added[0].id); setSelectedId(null); }
       const limitations = [...result.warnings, ...(skipped ? [`${skipped} document(s) had no ready text and were not analysed.`] : []),
         ...(sources.some(source => source.preparedContent?.limitations.some(item => /failed|no readable|not supported/i.test(item)))
           ? ['Some source content could not be extracted. Check document processing limitations.'] : [])];
-      setAnalysisStatus([added.length ? `${added.length} new categories proposed. Existing categories are unchanged.` : 'No thematic categories could be identified from this material.', ...limitations].join(' '));
+      setAnalysisStatus([added.length ? `${added.length} categories proposed. Previous unedited proposals have been replaced; your edits and reviewed categories are kept.` : 'No thematic categories could be identified from this material.', ...limitations].join(' '));
     } catch (error) {
       setAnalysisStatus('');
       setError(error instanceof Error && error.name !== 'TimeoutError' && error.name !== 'TypeError' ? error.message

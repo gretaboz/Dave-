@@ -37,3 +37,21 @@ test('existing category IDs and names are validated before sending research to O
  assert.throws(()=>validateRelationshipInput({...input,chunks:[{...input.chunks[0],categoryReferences:[{id:'invented',revision:2}]}]}),/category reference/);
  assert.throws(()=>validateRelationshipInput({...input,chunks:[{...input.chunks[0],categories:['Invented category']}]}),/category reference/);
 });
+
+test('claims are capped per category before relationships are generated',()=>{
+ const many=Array.from({length:12},(_,i)=>({...claim,id:'c'+i}));
+ const result=validateClaims({claims:many,warnings:[]},chunks);
+ assert.equal(result.claims.length,10);
+ assert.deepEqual(result.claims.map(c=>c.id),many.slice(0,10).map(c=>c.id));
+ const other={...chunks[0],id:'other',categories:['Materials']};
+ assert.equal(validateClaims({claims:[...many,...many.map(c=>({...c,id:'other-'+c.id,passageIds:['other']}))],warnings:[]},[...chunks,other]).claims.length,20);
+});
+
+test('an unsupported relationship is omitted without discarding grounded claims',async()=>{
+ let calls=0;
+ const results=[{claims:[claim,{...claim,id:'d'}],warnings:[]},{relationships:[{...connection,passageIds:['unknown']}],warnings:[]}];
+ const result=await analyseRelationships({chunks,context:''},{apiKey:'test-only',fetchImpl:async()=>({ok:true,json:async()=>({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(results[calls++])}]}]})})});
+ assert.equal(result.claims.length,2);
+ assert.equal(result.relationships.length,0);
+ assert.match(result.warnings.join(' '),/omitted/);
+});

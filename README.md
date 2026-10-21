@@ -83,8 +83,13 @@ The model returns existing passage IDs rather than generating quotation text. Th
 server rejects unknown IDs; the browser checks each selected range against stored
 source text and revisions. Excerpts are retrieved verbatim from that stored text. The whole
 proposal set is committed in one store change only after validation. Failures preserve
-existing categories. New analysis adds proposals rather than overwriting prior work;
-designers may reject duplicates. Changed research invalidates an in-flight result.
+existing categories. Successful reanalysis archives previous unedited DAVE proposals and
+adds the reviewed set atomically. Designer-created, edited and reviewed categories are
+kept; archived groups retain their IDs and evidence references. Changed research invalidates
+an in-flight result. A separate semantic review merges neighbouring topics using category
+descriptions and passage IDs, without sending the raw research again. Both passes must
+succeed, and review must preserve passage coverage. Generation aims for 3–5 groups (six
+maximum); shared passages and duplicate names are rejected.
 
 The first version analyses at most 120,000 extracted characters per request. It never
 silently truncates input. Documents without ready text are excluded and reported.
