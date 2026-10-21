@@ -43,11 +43,11 @@ const contentKeys = {
   evidence: ['categories', 'passage', 'source', 'text', 'form', 'location', 'context', 'limitations'],
   claims: ['statement', 'evidence', 'context', 'stakeholder', 'limitations', 'review'],
   relationships: ['evidence', 'description', 'type', 'claims', 'explanation', 'contextCheck', 'challenge', 'limitations', 'review'],
-  dimensions: ['evidence', 'researchPassages', 'generation', 'name', 'lowLabel', 'midLabel', 'highLabel', 'lowExplanation', 'midExplanation', 'highExplanation', 'rationale', 'grounding', 'draftPosition', 'explanation', 'claims', 'relationships', 'limitations', 'review'],
+  dimensions: ['evidence', 'researchPassages', 'generation', 'name', 'lowLabel', 'midLabel', 'highLabel', 'lowExplanation', 'midExplanation', 'highExplanation', 'rationale', 'grounding', 'draftPosition', 'explanation', 'claims', 'relationships', 'limitations', 'review', 'directionReview'],
   dimensionPositions: ['dimension', 'selected', 'value', 'reasoning', 'confirmedAt'],
   explorationNodes: ['branchParent', 'questionState', 'question', 'explorationSession', 'title', 'content', 'references', 'dimensionPositions', 'limitations'],
   explorationConnections: ['fromNodeId', 'toNodeId', 'label', 'directional'],
-  directions: ['title', 'description', 'reasoning', 'openQuestions', 'state', 'explorationNodes', 'references', 'tuningSnapshot', 'limitations'],
+  directions: ['title', 'description', 'reasoning', 'openQuestions', 'state', 'explorationNodes', 'references', 'tuningSnapshot', 'limitations', 'parameterSnapshot', 'confirmedAt', 'parentDirection'],
 } as const satisfies { [K in Collection]: readonly (keyof ContentMap[K])[] };
 
 function pick<T>(value: object, keys: readonly string[]): T {
@@ -152,6 +152,15 @@ export function createProjectStore() {
         });
         dimension.claims.forEach(ref => resolve('claims', ref));
         dimension.relationships.forEach(ref => resolve('relationships', ref));
+        if (dimension.directionReview) {
+          const review = dimension.directionReview;
+          if (!['proposed','included','excluded','deferred'].includes(review.state)) throw new Error('Invalid parameter review state.');
+          if (review.variability && !['fixed','adjustable'].includes(review.variability)) throw new Error('Invalid parameter variability.');
+          if (!['undecided','designer_set'].includes(review.orientation.status)) throw new Error('Invalid parameter orientation.');
+          if (review.orientation.status === 'designer_set' && !review.orientation.text?.trim()) throw new Error('Describe the chosen orientation or leave it undecided.');
+          review.relevanceEvidence.forEach(ref => resolve('evidence', ref));
+          review.orientationEvidence.forEach(ref => resolve('evidence', ref));
+        }
         break;
       }
       case 'dimensionPositions': {
@@ -196,6 +205,17 @@ export function createProjectStore() {
         const direction = value as M.Direction;
         references(direction.references);
         direction.explorationNodes.forEach(ref => resolve('explorationNodes', ref));
+        if (direction.parentDirection) resolve('directions', direction.parentDirection);
+        direction.parameterSnapshot?.forEach(parameter => {
+          resolve('dimensions', parameter.dimension);
+          parameter.relevanceEvidence.forEach(ref => resolve('evidence', ref));
+          parameter.orientationEvidence.forEach(ref => resolve('evidence', ref));
+          parameter.researchPassages.forEach(({category, passage}) => {
+            const categoryContent = resolve('categories', category);
+            if (!categoryContent.passages?.some(candidate => equal(candidate, passage))) throw new Error('Direction research must match its saved category revision.');
+            resolve('sources', passage.source);
+          });
+        });
         break;
       }
     }
