@@ -63,10 +63,11 @@ test('creates a real empty project, keeps one project through every stage, and r
     assert.equal(project.context, 'Support visitors during their first visit.');
     for (const key of ['sources', 'categories', 'evidence', 'claims', 'relationships', 'dimensions',
       'dimensionPositions', 'explorationNodes', 'explorationConnections', 'directions']) assert.deepEqual(project[key], []);
-    for (const stage of ['Research', 'Relationships', 'Dimensions', 'Explore', 'Directions']) {
+    assert.equal(await page.getByRole('navigation', { name: 'Design workflow' }).getByRole('button').count(), 4);
+    assert.equal(await page.getByRole('button', { name: 'Directions', exact: true }).count(), 0);
+    for (const stage of ['Research', 'Relationships', 'Dimensions', 'Exploration']) {
       await page.getByRole('button', { name: stage, exact: true }).click();
-      if (stage !== 'Research') await page.getByRole('heading', { name: stage, level: 2, exact: true }).waitFor();
-      else assert.equal(await page.getByRole('heading', { name: stage, level: 2, exact: true }).count(), 0);
+      assert.equal(await page.getByRole('heading', { name: stage, level: 2, exact: true }).count(), 0);
       assert.equal(await page.getByRole('button', { name: stage, exact: true }).getAttribute('aria-current'), 'step');
       await page.getByRole('heading', { name: 'Museum visit', exact: true }).waitFor();
       assert.deepEqual(await currentProject(page), project);
@@ -117,7 +118,7 @@ test('a saving error retains the project, never claims success, and retry persis
     await page.getByRole('heading', { name: 'Unsaved project', exact: true }).waitFor();
     const project = await currentProject(page);
     assert.equal(project.context, 'Keep this brief even if saving fails.');
-    await page.getByRole('button', { name: /Explore$/ }).click();
+    await page.getByRole('button', { name: /Exploration$/ }).click();
     await waitForText(page, 'status', 'Changes have not been saved.');
     await page.evaluate(() => { window.denyLocalStorage = false; });
     await page.getByRole('button', { name: 'Retry saving', exact: true }).click();
@@ -274,7 +275,7 @@ test('New Project starts blank and projects retain independent content across sw
       return store.getProject();
     });
     await waitForText(page, 'status', 'Saved locally.');
-    await page.getByRole('button', { name: 'Explore', exact: true }).click();
+    await page.getByRole('button', { name: 'Exploration', exact: true }).click();
     await page.getByRole('button', { name: 'New Project', exact: true }).click();
     await page.getByLabel('Project name', { exact: true }).fill('Second project');
     await page.getByRole('button', { name: 'Create project', exact: true }).click();
@@ -286,18 +287,88 @@ test('New Project starts blank and projects retain independent content across sw
     for (const key of ['sources', 'categories', 'evidence', 'claims', 'relationships', 'dimensions',
       'dimensionPositions', 'explorationNodes', 'explorationConnections', 'directions']) assert.deepEqual(second[key], []);
     assert.equal(await page.getByRole('button', { name: 'Research', exact: true }).getAttribute('aria-current'), 'step');
-    await page.getByLabel('Project', { exact: true }).selectOption(original.id);
+    await page.getByRole('button', { name: 'Project library', exact: true }).click();
+    await page.getByRole('region', { name: 'Project library', exact: true }).getByRole('button', { name: original.name, exact: true }).click();
     await waitForText(page, 'status', 'Saved locally.');
     assert.deepEqual(await currentProject(page), original);
     await page.reload();
     await waitForText(page, 'status', 'Saved locally.');
     assert.deepEqual(await currentProject(page), original);
-    await page.getByLabel('Project', { exact: true }).selectOption(second.id);
+    await page.getByRole('button', { name: 'Project library', exact: true }).click();
+    await page.getByRole('region', { name: 'Project library', exact: true }).getByRole('button', { name: second.name, exact: true }).click();
     await waitForText(page, 'status', 'Saved locally.');
     assert.deepEqual(await currentProject(page), second);
     await page.getByRole('button', { name: 'New Project', exact: true }).click();
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     assert.deepEqual(await currentProject(page), second);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('a saved legacy Directions project opens in the four-stage workflow without changing its records', async () => {
+  const { context, page, errors } = await openShell();
+  try {
+    await page.goto(server.resolvedUrls.local[0]);
+    await page.getByRole('button', { name: 'Live AI', exact: true }).click();
+    await waitForText(page, 'status', 'No project yet.');
+    const legacy = await page.evaluate(async () => {
+      const { createProjectStore } = await import('/src/state/projectStore.ts');
+      const { createLocalPersistence } = await import('/src/persistence/localPersistence.ts');
+      const project = createProjectStore().createProject({ name: 'Legacy project', context: 'Existing work' });
+      project.directions.push({ id: crypto.randomUUID(), revision: 1, origin: 'researcher',
+        createdAt: project.createdAt, updatedAt: project.updatedAt, history: [],
+        title: 'Saved legacy direction', state: 'retained', parameterSnapshot: [], extra: { retained: true } });
+      await createLocalPersistence().saveProject(project);
+      return project;
+    });
+    await page.reload();
+    await waitForText(page, 'status', 'Saved locally.');
+    for (const stage of ['Research', 'Relationships', 'Dimensions', 'Exploration']) {
+      await page.getByRole('button', { name: stage, exact: true }).click();
+      assert.deepEqual(await currentProject(page), legacy);
+    }
+    assert.equal(await page.getByRole('button', { name: 'Directions', exact: true }).count(), 0);
+    assert.equal(await page.getByText('Saved legacy direction', { exact: true }).count(), 0);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('project library confirms deletion, preserves cancellation and other projects, and supports deleting the last project', async () => {
+  const { context, page, errors } = await openShell();
+  try {
+    await page.goto(server.resolvedUrls.local[0]);
+    await page.getByRole('button', { name: 'Live AI', exact: true }).click();
+    await waitForText(page, 'status', 'No project yet.');
+    await page.getByLabel('Project name', { exact: true }).fill('First project');
+    await page.getByRole('button', { name: 'Create project', exact: true }).click();
+    await waitForText(page, 'status', 'Saved locally.');
+    const first = await currentProject(page);
+    await page.getByRole('button', { name: 'New Project', exact: true }).click();
+    await page.getByLabel('Project name', { exact: true }).fill('Second project');
+    await page.getByRole('button', { name: 'Create project', exact: true }).click();
+    await waitForText(page, 'status', 'Saved locally.');
+    const second = await currentProject(page);
+    await page.getByRole('button', { name: 'Project library', exact: true }).click();
+    page.once('dialog', async dialog => { assert.match(dialog.message(), /First project/); await dialog.dismiss(); });
+    await page.getByRole('button', { name: 'Delete project First project', exact: true }).click();
+    assert.deepEqual(await currentProject(page), second);
+    assert.equal(await page.getByRole('button', { name: 'Delete project First project', exact: true }).count(), 1);
+    page.once('dialog', dialog => dialog.accept());
+    await page.getByRole('button', { name: 'Delete project First project', exact: true }).click();
+    await waitForText(page, 'status', 'Saved locally.');
+    assert.deepEqual(await currentProject(page), second);
+    assert.equal(await page.evaluate(async id => (await import('/src/persistence/localPersistence.ts')).createLocalPersistence().loadProject(id), first.id), null);
+    await page.reload();
+    await waitForText(page, 'status', 'Saved locally.');
+    await page.getByRole('button', { name: 'Project library', exact: true }).click();
+    assert.equal(await page.getByRole('button', { name: 'Delete project First project', exact: true }).count(), 0);
+    page.once('dialog', dialog => dialog.accept());
+    await page.getByRole('button', { name: 'Delete project Second project', exact: true }).click();
+    await waitForText(page, 'status', 'No project yet.');
+    assert.equal(await currentProject(page), null);
+    await page.reload();
+    await waitForText(page, 'status', 'No project yet.');
+    assert.equal(await currentProject(page), null);
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });

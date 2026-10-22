@@ -429,7 +429,7 @@ unchanged.
 
 ### Exploration on the progressive Design Map
 
-Research, Relationships, Dimensions and Explore now use one mounted
+Research, Relationships, Dimensions and Exploration use one mounted
 `RelationshipsMap` and its existing world transform. Research offers Show Design
 Map alongside intake. Stage navigation focuses an area and restores its previous
 pan/zoom; focus controls keep the rest of the map accessible. Research category
@@ -471,7 +471,7 @@ a confirmed session. They remain editable even before new confirmation.
 
 Fit map maintains a readable minimum zoom and can crop a very large map; pan or
 use Show research / Show dimensions / Show exploration to reach other areas.
-AI-guided questions are described below. Design Directions remain unimplemented.
+AI-guided questions are described below. Exploration is the final workflow stage.
 
 `tests/exploration.browser.test.mjs` covers confirmation, a single surviving
 canvas, editing, branching, arrow deduplication/deletion, card deletion, scaled
@@ -488,7 +488,7 @@ question has a subtle pastel treatment, Why this question?, Skip / Revisit, and
 Different question. Alternatives append a sibling question and mark the previous
 one skipped; they preserve its responses and history. Manual contributions remain
 available during generation and after failures. No chat, design solutions, branch
-ranking, automatic questions or Directions are added.
+ranking or automatic questions are added.
 
 Respond creates a linked contribution. The editor supports ideas, written notes,
 and sketches/images. Branch idea creates another linked alternative. Own
@@ -613,7 +613,7 @@ still fail validation. Research-supported means source-motivated, not verified t
 Confirm tuning remains an explicit designer action that creates a branch with an
 immutable snapshot. It uses current dimension wording while preserving chosen
 values, without an additional approval panel. Creating further exploration
-branches and selecting final design directions remain explicit human decisions.
+branches remains an explicit human decision.
 Deletion archives interpretations so earlier provenance remains available.
 
 
@@ -660,3 +660,11 @@ It tests a citrus press, cycling bag and community seed library at initial,
 first-idea and developed-idea stages. It incurs normal API usage.
 See [the reviewed live examples](EXPLORATION_QUESTION_EVALUATION.md) for the quality
 assessment; automated reference and wording checks alone cannot establish usefulness.
+
+## Four-stage workflow
+
+DAVE has four stages: Research → Relationships → Dimensions → Exploration.
+The former Directions workspace and its confirmation actions have been removed.
+Version-1 saved projects retain any legacy Directions records and dimension review
+metadata internally, including revision history. They are not shown or sent to AI.
+The IndexedDB schema and database version are unchanged; no migration or reset is needed.

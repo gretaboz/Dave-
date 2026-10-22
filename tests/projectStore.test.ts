@@ -100,26 +100,6 @@ test('moving board elements skips history while content and connection edits ret
   assert.deepEqual(store.getProject()?.directions, []);
 });
 
-test('explicit directions capture tuning and endpoint meanings independently of later edits', () => {
-  const store = setup();
-  const dimension = store.dimensions.add(dimensionContent(), 'dave');
-  const position = store.setDimensionPosition({ dimension: { id: dimension.id, revision: 1 }, selected: true, value: null });
-  let notifications = 0;
-  store.subscribe(() => notifications++);
-  const direction = store.createDirection({ title: 'Chosen direction', description: '', reasoning: '',
-    openQuestions: [], state: 'draft', explorationNodes: [], references: references(), limitations: [] });
-  assert.equal(notifications, 1);
-  assert.equal(direction.designatedBy, 'researcher');
-  store.dimensions.update(dimension.id, { lowLabel: 'Less guidance' });
-  const updated = store.setDimensionPosition({ dimension: { id: dimension.id, revision: 2 }, selected: true, value: 0.5 });
-  assert.equal(updated.id, position.id);
-  assert.equal(store.getProject()?.dimensionPositions.length, 1);
-  store.updateDirection(direction.id, { description: 'Clarified direction' });
-  assert.deepEqual(store.getProject()?.directions[0].tuningSnapshot, direction.tuningSnapshot);
-  assert.equal(direction.tuningSnapshot[0].value, null);
-  assert.equal(direction.tuningSnapshot[0].lowLabel, 'Minimal');
-});
-
 test('invalid references and tuning fail without changing the current project', () => {
   const store = setup();
   const dimension = store.dimensions.add(dimensionContent());
@@ -155,4 +135,30 @@ test('deleting interpretations archives them without changing evidence or downst
  store.claims.remove(claim.id);const p=store.getProject()!;
  assert.ok(p.claims[0].archivedAt);assert.equal(p.claims[0].revision,1);
  assert.deepEqual(p.evidence[0],evidence);assert.deepEqual(p.sources[0],source);assert.deepEqual(p.dimensions[0],d);
+});
+
+test('legacy Directions records and dimension reviews survive restoration and ordinary edits', () => {
+  const store = setup();
+  const dimension = store.dimensions.add(dimensionContent());
+  const legacy = store.getProject()!;
+  const review = { state: 'included', orientation: { status: 'undecided' }, extra: ['retained'] };
+  legacy.dimensions[0].directionReview = review;
+  legacy.directions.push({ id: 'legacy-direction' as EntityId<'direction'>, revision: 2,
+    origin: 'researcher', createdAt: legacy.createdAt, updatedAt: legacy.updatedAt,
+    history: [{ revision: 1, content: { title: 'Original direction' }, savedAt: legacy.updatedAt,
+      changedBy: 'researcher', origin: 'researcher' }], title: 'Saved direction',
+    parameterSnapshot: [{ dimension: { id: dimension.id, revision: 1 } }], unknown: { keep: true } });
+  store.restoreProject(legacy);
+  assert.deepEqual(store.getProject(), legacy);
+  store.updateProject({ name: 'Continued work' });
+  store.dimensions.update(dimension.id, { name: 'Updated guidance' });
+  const saved = store.getProject()!;
+  assert.deepEqual(saved.directions, legacy.directions);
+  assert.deepEqual(saved.dimensions[0].directionReview, review);
+  assert.deepEqual(saved.dimensions[0].history[0].content.directionReview, review);
+  const reopened = createProjectStore();
+  reopened.restoreProject(saved);
+  assert.deepEqual(reopened.getProject(), saved);
+  assert.equal('createDirection' in store, false);
+  assert.equal('updateDirection' in store, false);
 });

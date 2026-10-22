@@ -1,3 +1,5 @@
+> Historical document: the Directions proposal below is retired and is not an active workflow or implementation target. DAVE now uses Research → Relationships → Dimensions → Exploration.
+
 # DAVE Pre-Class Implementation Meeting
 
 Duration: 60 minutes  

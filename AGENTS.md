@@ -61,9 +61,9 @@ Research
 ↓
 Relationships
 ↓
-Design Direction
+Dimensions
 ↓
-Explore
+Exploration
 
 Internally, the information chain is more detailed:
 
@@ -226,7 +226,7 @@ The designer must be able to:
 
 DAVE must not decide which perspective is correct or resolve the tension automatically.
 
-## 7. Stage 3 — Design Direction
+## 7. Stage 3 — Dimensions
 
 ### Purpose
 
@@ -315,7 +315,7 @@ The combination of selected dimensions and positions forms a provisional design 
 
 This direction remains editable.
 
-## 11. Stage 4 — Explore
+## 11. Stage 4 — Exploration
 
 ### Purpose
 
@@ -498,8 +498,8 @@ The primary workflow should remain understandable:
 
 1. Research
 2. Relationships
-3. Design Direction
-4. Explore
+3. Dimensions
+4. Exploration
 
 Users should understand where they are and how the stages connect.
 
@@ -588,10 +588,10 @@ Preferred implementation sequence:
 5. Research AI integration
 6. Relationships interface
 7. relationship AI integration
-8. Design Direction interface
+8. Dimensions interface
 9. dimension generation
 10. tuning interaction
-11. Explore workspace
+11. Exploration workspace
 12. contextual Ask DAVE interaction
 13. provenance navigation between stages
 14. refinement and testing
@@ -600,7 +600,7 @@ Each stage should work before major complexity is added to the next.
 
 ## 24. Existing work
 
-Some DAVE functionality may already exist in the repository, particularly Design Direction, dimension tuning, and exploration questioning.
+Some DAVE functionality may already exist in the repository, particularly Dimensions, dimension tuning, and exploration questioning.
 
 Before replacing existing code:
 
@@ -638,7 +638,7 @@ Do not begin by implementing every AI capability.
 First inspect the current repository and understand:
 
 - existing structure
-- existing Design Direction functionality
+- existing Dimensions functionality
 - existing dimension logic
 - existing OpenAI integration
 - existing exploration board
@@ -656,7 +656,7 @@ The Design Map is not a separate workflow stage. It is a persistent, optional vi
 A compact Map control should eventually remain accessible from the main workspace. When opened, the map should expand into a large interactive view while preserving the user's current workflow context. Closing it returns the designer to the same stage and work state.
 The map must be derived from the shared project data rather than maintaining a duplicate map-specific representation of the project.
 As the project progresses, the map may progressively expose:
-Sources → Evidence → Claims → Relationships → Dimensions → Exploration → Directions
+Sources → Evidence → Claims → Relationships → Dimensions → Exploration
 Not every layer must always be visible. The interface should use progressive disclosure to prevent the map from becoming visually overwhelming.
 Map connections represent provenance or explicit relationships in project data. They must not imply causality, importance, certainty, or chronology unless the underlying evidence supports that interpretation.
 Do not implement the Design Map until the shared data model and enough workflow entities exist to make it meaningful.

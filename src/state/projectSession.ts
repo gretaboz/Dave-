@@ -5,7 +5,7 @@ import { createProjectStore } from './projectStore';
 
 type Store = ReturnType<typeof createProjectStore>;
 type Persistence = Pick<ReturnType<typeof createLocalPersistence>, 'loadIntoStore' | 'saveProject'>
-  & Partial<Pick<ReturnType<typeof createLocalPersistence>, 'saveFile' | 'loadFile' | 'listProjects' | 'loadProject'>>;
+  & Partial<Pick<ReturnType<typeof createLocalPersistence>, 'saveFile' | 'loadFile' | 'listProjects' | 'loadProject' | 'deleteProject'>>;
 
 export interface ProjectSnapshot {
   projects?: { id: EntityId<'project'>; name: string }[];
@@ -169,6 +169,33 @@ export function createProjectSession(store: Store, persistence: Persistence) {
       const blank = createProjectStore().createProject({ name: content.name.trim(), context: content.context });
       store.restoreProject(blank);
       return blank;
+    },
+    async deleteProject(id: EntityId<'project'>) {
+      if (!initialised || saving || pending || snapshot.status === 'loading')
+        throw new Error('Wait for your project to finish saving before deleting.');
+      if (!persistence.deleteProject) throw new Error('Project deletion is unavailable.');
+      const before = snapshot;
+      publish({ ...snapshot, status: 'loading' });
+      // Hold autosaves so a late edit or AI result cannot recreate a deleted project.
+      initialised = false;
+      try {
+        const result = await persistence.deleteProject(id);
+        const current = store.getProject();
+        const retained = current?.id === result.project?.id ? current : result.project;
+        projects = result.projects;
+        if (retained) store.restoreProject(retained);
+        else store.clearProject();
+        observed = JSON.stringify(result.project);
+        publish({ project: retained, status: retained ? 'saved' : 'empty', error: null, errorOperation: null });
+      } catch (error) {
+        observed = JSON.stringify(before.project);
+        publish({ ...before, project: store.getProject() });
+        throw error;
+      } finally {
+        initialised = true;
+        // Preserve edits to a surviving project that arrived during the transaction.
+        storeChanged();
+      }
     },
     async switchProject(id: EntityId<'project'>) {
       if (!initialised || saving || pending || snapshot.status === 'loading')

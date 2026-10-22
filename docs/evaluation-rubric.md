@@ -1,3 +1,5 @@
+> Historical document: the Directions proposal below is retired and is not an active workflow or implementation target. DAVE now uses Research → Relationships → Dimensions → Exploration.
+
 # DAVE Directions Evaluation Rubric
 
 Evaluate each criterion independently as `PASS`, `PARTIAL`, `FAIL`, or `N/A`, and record observable evidence plus an evaluator note. Do not collapse the results into a single score.

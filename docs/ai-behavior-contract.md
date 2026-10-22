@@ -1,3 +1,5 @@
+> Historical document: the Directions proposal below is retired and is not an active workflow or implementation target. DAVE now uses Research → Relationships → Dimensions → Exploration.
+
 # DAVE AI Behavior Contract
 
 This is a normative contract. **Must** and **must not** are release requirements.

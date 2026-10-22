@@ -64,9 +64,14 @@ async function initialise(page) {
         dimensionPositions: [{ id: position.id, revision: 1 }], limitations: [], position: { x: 12, y: 25 } });
       const other = store.explorationNodes.add({ ...node, content: { type: 'note', text: 'Another branch' } });
       store.explorationConnections.add({ fromNodeId: node.id, toNodeId: other.id, directional: false, label: 'Related' });
-      store.createDirection({ title: 'Chosen direction', description: '', reasoning: 'Designer decision',
-        state: 'draft', openQuestions: ['What next?'], explorationNodes: [{ id: node.id, revision: 1 }],
-        references: refs(), limitations: [] });
+      // Simulate a project saved by the removed Directions feature.
+      const legacy = store.getProject();
+      legacy.directions.push({ id: crypto.randomUUID(), revision: 1, origin: 'researcher',
+        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), history: [],
+        title: 'Legacy direction', state: 'retained', parameterSnapshot: [{ dimension: { id: dimension.id, revision: 1 } }],
+        tuningSnapshot: [], unknownLegacyField: { preserved: true } });
+      legacy.dimensions[0].directionReview = { state: 'included', orientation: { status: 'undecided' } };
+      store.restoreProject(legacy);
       store.dimensions.update(dimension.id, { name: 'Amount of guidance' });
       store.claims.update(first.id, { review: { state: 'partially_accepted', note: 'Context matters' } });
       store.setDimensionPosition({ dimension: { id: dimension.id, revision: 2 }, selected: true, value: 0.5 });
@@ -245,5 +250,95 @@ test('a legacy current-only project survives creation of a second project', asyn
   assert.equal(result.legacyUnchanged, true);
   assert.equal(result.current, result.next);
   assert.equal(result.projects, 2);
+  await page.close();
+});
+
+test('project deletion removes only its records and exclusive files, retaining shared assets and an empty library', async () => {
+  const page = await pageForTest();
+  const result = await page.evaluate(async () => {
+    const { makeProject, createLocalPersistence, createProjectStore } = window.persistenceTest;
+    const { store, assetId } = makeProject();
+    const first = store.getProject();
+    const sketchId = crypto.randomUUID();
+    first.explorationNodes[0].content = { type: 'sketch', asset: { id: sketchId, filename: 'drawing.png', mediaType: 'image/png' } };
+    const secondStore = createProjectStore();
+    secondStore.createProject({ name: 'Other project', context: '' });
+    secondStore.sources.add({ title: 'Shared research', originalFile: first.sources[0].originalFile, processingState: 'ready', limitations: [] });
+    const second = secondStore.getProject();
+    const persistence = createLocalPersistence({ databaseName: `delete-${crypto.randomUUID()}` });
+    await persistence.saveProject(first, [{ id: assetId, blob: new Blob(['shared']) }, { id: sketchId, blob: new Blob(['sketch']) }]);
+    await persistence.saveProject(second);
+    const deleted = await persistence.deleteProject(first.id);
+    const shared = await (await persistence.loadFile(assetId)).text();
+    const exclusive = await persistence.loadFile(sketchId);
+    const missing = await persistence.loadProject(first.id);
+    const unchanged = JSON.stringify(await persistence.loadProject()) === JSON.stringify(second);
+    await persistence.deleteProject(second.id);
+    return { deletedIds: deleted.projects.map(p => p.id), secondId: second.id, shared, exclusive, missing, unchanged,
+      empty: await persistence.loadProject(), list: await persistence.listProjects(), sharedAfterLast: await persistence.loadFile(assetId), initialized: await persistence.hasSavedSelection() };
+  });
+  assert.deepEqual(result.deletedIds, [result.secondId]);
+  assert.equal(result.shared, 'shared');
+  assert.equal(result.exclusive, null);
+  assert.equal(result.missing, null);
+  assert.equal(result.unchanged, true);
+  assert.equal(result.empty, null);
+  assert.deepEqual(result.list, []);
+  assert.equal(result.sharedAfterLast, null);
+  assert.equal(result.initialized, true);
+  await page.close();
+});
+
+test('a failed project deletion rolls back both project records and original files', async () => {
+  const page = await pageForTest();
+  const result = await page.evaluate(async () => {
+    const { makeProject, createLocalPersistence } = window.persistenceTest;
+    const { store, assetId } = makeProject();
+    const project = store.getProject();
+    const persistence = createLocalPersistence({ databaseName: `delete-rollback-${crypto.randomUUID()}` });
+    await persistence.saveProject(project, [{ id: assetId, blob: new Blob(['Original']) }]);
+    const originalDelete = IDBObjectStore.prototype.delete;
+    IDBObjectStore.prototype.delete = function (...args) {
+      if (this.name === 'files') throw new Error('Injected deletion failure');
+      return originalDelete.apply(this, args);
+    };
+    let failed = false;
+    try { await persistence.deleteProject(project.id); } catch { failed = true; }
+    finally { IDBObjectStore.prototype.delete = originalDelete; }
+    return { failed, unchanged: JSON.stringify(await persistence.loadProject()) === JSON.stringify(project),
+      byId: JSON.stringify(await persistence.loadProject(project.id)) === JSON.stringify(project), file: await (await persistence.loadFile(assetId)).text() };
+  });
+  assert.deepEqual(result, { failed: true, unchanged: true, byId: true, file: 'Original' });
+  await page.close();
+});
+
+test('deleting the current project selects a surviving project; an intentionally empty Demo library stays empty', async () => {
+  const page = await pageForTest();
+  const result = await page.evaluate(async () => {
+    const { makeProject, createLocalPersistence, createProjectStore } = window.persistenceTest;
+    const { store } = makeProject();
+    const first = store.getProject();
+    const second = createProjectStore().createProject({ name: 'Current project', context: '' });
+    const name = `delete-current-${crypto.randomUUID()}`;
+    const persistence = createLocalPersistence({ databaseName: name });
+    await persistence.saveProject(first);
+    await persistence.saveProject(second);
+    const deleted = await persistence.deleteProject(second.id);
+    const selected = await persistence.loadProject();
+    await persistence.deleteProject(first.id);
+    const { createDemoSession } = await import('/src/features/research/demoResearch.ts');
+    const demo = createDemoSession(name);
+    await new Promise(resolve => {
+      const stop = demo.subscribe(() => {
+        if (demo.getSnapshot().status !== 'loading') { stop(); resolve(); }
+      });
+      demo.connect();
+    });
+    return { selectedUnchanged: JSON.stringify(selected) === JSON.stringify(first),
+      returnedUnchanged: JSON.stringify(deleted.project) === JSON.stringify(first),
+      missing: await persistence.loadProject(second.id), demoProject: demo.getSnapshot().project,
+      demoStatus: demo.getSnapshot().status, projects: await persistence.listProjects() };
+  });
+  assert.deepEqual(result, { selectedUnchanged: true, returnedUnchanged: true, missing: null, demoProject: null, demoStatus: 'empty', projects: [] });
   await page.close();
 });

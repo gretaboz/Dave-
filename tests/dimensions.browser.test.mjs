@@ -59,11 +59,14 @@ test('manual dimensions share the map, preserve research and earlier data, and p
     }
     const lines=page.locator('.dimensions-workspace [data-association-from]');
     assert.equal(await lines.count(),2);
-    assert.equal(await lines.first().getAttribute('opacity'),'0.13');
+    await page.waitForFunction(() => [...document.querySelectorAll('[data-association-from]')].every(line => getComputedStyle(line).opacity === '0.32'));
+    assert.deepEqual(await lines.evaluateAll(items => items.map(line => line.dataset.active)), ['false', 'false']);
     await card.getByRole('heading',{name:'Mechanical assistance',exact:true}).click();
-    assert.equal(await lines.first().getAttribute('opacity'),'0.72');
+    await page.waitForFunction(() => [...document.querySelectorAll('[data-association-from]')].every(line => getComputedStyle(line).opacity === '0.95'));
+    assert.deepEqual(await lines.evaluateAll(items => items.map(line => line.dataset.active)), ['true', 'true']);
     await page.getByRole('button',{name:'Clear selection',exact:true}).click();
-    assert.equal(await lines.first().getAttribute('opacity'),'0.13');
+    await page.waitForFunction(() => [...document.querySelectorAll('[data-association-from]')].every(line => getComputedStyle(line).opacity === '0.32'));
+    assert.deepEqual(await lines.evaluateAll(items => items.map(line => line.dataset.active)), ['false', 'false']);
     await card.getByRole('button', { name: 'Associated findings (2)', exact: true }).click();
     assert.equal(await page.locator('.dimensions-workspace [data-association-from]').count(), 2);
     await page.getByLabel('Dimension and research inspector').getByText('Force varies between users.', { exact: true }).waitFor();

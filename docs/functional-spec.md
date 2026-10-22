@@ -1,3 +1,5 @@
+> Historical document: the Directions proposal below is retired and is not an active workflow or implementation target. DAVE now uses Research → Relationships → Dimensions → Exploration.
+
 # DAVE Design Direction — Functional Specification
 
 Status: implementation target for the Directions MVP  

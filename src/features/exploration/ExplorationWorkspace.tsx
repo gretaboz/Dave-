@@ -74,7 +74,7 @@ export function useExploration({ project, store, active, onInspectDimension, onF
   }
   function start(event: PointerEvent<HTMLElement>, node: ExplorationNode) {
     event.stopPropagation();
-    if (!active || event.button !== 0 || (event.target as HTMLElement).closest('button')) return;
+    if (!active || event.button !== 0 || (event.target as HTMLElement).closest('button,[contenteditable="true"]')) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     const initial = point(node);
     drag.current = { id: node.id, start: { x: event.clientX, y: event.clientY }, initial, current: initial, moved: false };
@@ -164,14 +164,10 @@ export function useExploration({ project, store, active, onInspectDimension, onF
     {project&&session&&<div className="exploration-active-branch"><label htmlFor={`${marker}-branch`}>Active branch</label><select id={`${marker}-branch`} value={session.id} onChange={e=>activateBranch(e.target.value as ExplorationSession['id'])}>{sessions.map(s=><option key={s.id} value={s.id}>{branchName(project,s)}</option>)}</select></div>}
     {session?.duplicateOf&&project&&<p role="status">Identical tuning already exists in {branchName(project,sessions.find(s=>s.id===session.duplicateOf)!)}. A separate branch was created.</p>}
     <div className="exploration-toolbar">
-      {!project?.explorationNodes.some(n=>!n.archivedAt&&n.question&&n.explorationSession?.id===session?.id) && <button disabled={!session||busy} onClick={()=>void generate(null,'initial',session?.id)}>Start exploring</button>}
-      <button disabled={!session||busy} onClick={()=>void generate(selectedNode?.id??null,selectedNode?'followup':'initial',session?.id)}>Ask DAVE</button>
+      <button disabled={!session||busy} onClick={()=>void generate(selectedNode?.id??null,selectedNode?'followup':'initial',session?.id)}>Dave asks</button>
       {busy&&<span role="status">DAVE is considering this branch…</span>}
-      <button disabled={!session} onClick={() => openEditor('new')}>Add idea</button>
-      {!selectedNode&&<><button disabled={!session} onClick={()=>openEditor('new',null,'note')}>Add note</button><button disabled={!session} onClick={()=>openEditor('new',null,'sketch')}>Add sketch</button></>}
-      <button disabled={!selectedNode||!!selectedNode.question} onClick={() => selected && openEditor(selected)}>Edit idea</button>
-      <button disabled={!selectedNode||!session} onClick={()=>selected&&openEditor('new',selected,'note')}>Respond</button>
-      <button disabled={!selectedNode || !session} onClick={() => selected && openEditor('new', selected)}>Branch idea</button>
+      <button disabled={!session} onClick={() => openEditor('new', selectedNode?.id ?? null)}>Add text</button>
+      <button disabled={!session} onClick={()=>openEditor('new',selectedNode?.id??null,'sketch')}>Add sketch</button>
       <button disabled={!selectedNode} aria-pressed={connecting} onClick={() => setConnecting(v => !v)}>{connecting ? 'Cancel connection' : 'Connect ideas'}</button>
       <button disabled={!selectedNode} onClick={() => attempt(() => { if (selected) store.explorationNodes.remove(selected); setSelected(null); setEditing(null); setConnecting(false); })}>Delete idea</button>
       <button disabled={!selectedConnection} onClick={() => attempt(() => { if (connection) store.explorationConnections.remove(connection); setConnection(null); })}>Delete connection</button>
@@ -224,7 +220,19 @@ export function useExploration({ project, store, active, onInspectDimension, onF
       {nodes.map(n => <article key={n.id} data-idea-id={n.id} className={`exploration-card${selected === n.id ? ' is-selected' : ''}${n.question?' exploration-question':''}${n.questionState==='skipped'?' is-skipped':''}`} style={{ left: point(n).x, top: point(n).y }} onPointerDown={e => start(e, n)} onPointerMove={e => { if (drag.current) { e.stopPropagation(); move(e, scale); } }} onPointerUp={e => { e.stopPropagation(); finish(); }} onPointerCancel={() => finish(true)} onLostPointerCapture={() => finish(true)}>
         <button className="exploration-card-title" aria-pressed={selected === n.id} onClick={() => choose(n.id)}>{n.title || 'Untitled idea'}</button>
         {(n.content.type==='image'||n.content.type==='sketch')&&<SketchImage asset={n.content.asset}/>}
-        <p>{n.content.text}</p>
+        <p contentEditable={active && !n.question} suppressContentEditableWarning
+          role={active && !n.question ? 'textbox' : undefined}
+          aria-label={active && !n.question ? `Text for ${n.title || 'untitled card'}` : undefined}
+          onBlur={event => {
+            if (!active || n.question) return;
+            const nextText = event.currentTarget.innerText;
+            attempt(() => {
+              if (nextText.length > 2400) throw new Error('Keep card text within 2400 characters.');
+              const current = store.getProject()?.explorationNodes.find(item => item.id === n.id && !item.archivedAt);
+              if (!current || current.question) return;
+              if (nextText !== current.content.text) store.explorationNodes.update(n.id, { content: { ...current.content, text: nextText } });
+            });
+          }}>{n.content.text}</p>
         {n.question&&<><small>{n.questionState==='skipped'?'Skipped · ':''}Generated by DAVE</small>{active&&<div className="exploration-question-actions"><button onClick={()=>{setInspecting(n.id);setEditing(null);}}>Why this question?</button><button onClick={()=>attempt(()=>store.explorationNodes.update(n.id,{questionState:n.questionState==='skipped'?'open':'skipped'},{note:'Designer changed question visibility.'}))}>{n.questionState==='skipped'?'Revisit':'Skip'}</button><button disabled={busy} onClick={()=>{setConnecting(false);if(n.explorationSession)store.selectExplorationBranch(n.explorationSession.id);setSelected(n.id);void generate(n.id,'alternative',n.explorationSession?.id);}}>Different question</button></div>}</>}
         {active && !n.question && <button className="exploration-card-edit" aria-label={`Edit ${n.title || 'idea'}`} onClick={() => openEditor(n.id)}>Edit</button>}
       </article>)}

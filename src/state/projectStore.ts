@@ -12,7 +12,6 @@ interface ContentMap {
   dimensionPositions: M.DimensionPositionContent;
   explorationNodes: M.ExplorationNodeContent;
   explorationConnections: M.ExplorationConnectionContent;
-  directions: M.DirectionContent;
 }
 type Collection = keyof ContentMap;
 type Item<K extends Collection> = M.Project[K][number];
@@ -33,7 +32,7 @@ const kinds = {
   sources: 'source', categories: 'research_category', evidence: 'evidence',
   claims: 'claim', relationships: 'relationship', dimensions: 'dimension',
   dimensionPositions: 'dimension_position', explorationNodes: 'exploration_node',
-  explorationConnections: 'exploration_connection', directions: 'direction',
+  explorationConnections: 'exploration_connection',
 } as const;
 
 /** Only these fields enter meaningful history; operational/layout fields do not. */
@@ -47,7 +46,6 @@ const contentKeys = {
   dimensionPositions: ['dimension', 'selected', 'value', 'reasoning', 'confirmedAt'],
   explorationNodes: ['branchParent', 'questionState', 'question', 'explorationSession', 'title', 'content', 'references', 'dimensionPositions', 'limitations'],
   explorationConnections: ['fromNodeId', 'toNodeId', 'label', 'directional'],
-  directions: ['title', 'description', 'reasoning', 'openQuestions', 'state', 'explorationNodes', 'references', 'tuningSnapshot', 'limitations', 'parameterSnapshot', 'confirmedAt', 'parentDirection'],
 } as const satisfies { [K in Collection]: readonly (keyof ContentMap[K])[] };
 
 function pick<T>(value: object, keys: readonly string[]): T {
@@ -73,7 +71,7 @@ export function createProjectStore() {
     if (!project) throw new Error('Create a project before editing its content.');
     return project;
   }
-  function publish(next: M.Project) {
+  function publish(next: M.Project | null) {
     project = structuredClone(next);
     for (const listener of listeners) listener();
   }
@@ -152,15 +150,6 @@ export function createProjectStore() {
         });
         dimension.claims.forEach(ref => resolve('claims', ref));
         dimension.relationships.forEach(ref => resolve('relationships', ref));
-        if (dimension.directionReview) {
-          const review = dimension.directionReview;
-          if (!['proposed','included','excluded','deferred'].includes(review.state)) throw new Error('Invalid parameter review state.');
-          if (review.variability && !['fixed','adjustable'].includes(review.variability)) throw new Error('Invalid parameter variability.');
-          if (!['undecided','designer_set'].includes(review.orientation.status)) throw new Error('Invalid parameter orientation.');
-          if (review.orientation.status === 'designer_set' && !review.orientation.text?.trim()) throw new Error('Describe the chosen orientation or leave it undecided.');
-          review.relevanceEvidence.forEach(ref => resolve('evidence', ref));
-          review.orientationEvidence.forEach(ref => resolve('evidence', ref));
-        }
         break;
       }
       case 'dimensionPositions': {
@@ -201,23 +190,6 @@ export function createProjectStore() {
         if (from.archivedAt || to.archivedAt) throw new Error('Cannot connect a deleted idea.');
         break;
       }
-      case 'directions': {
-        const direction = value as M.Direction;
-        references(direction.references);
-        direction.explorationNodes.forEach(ref => resolve('explorationNodes', ref));
-        if (direction.parentDirection) resolve('directions', direction.parentDirection);
-        direction.parameterSnapshot?.forEach(parameter => {
-          resolve('dimensions', parameter.dimension);
-          parameter.relevanceEvidence.forEach(ref => resolve('evidence', ref));
-          parameter.orientationEvidence.forEach(ref => resolve('evidence', ref));
-          parameter.researchPassages.forEach(({category, passage}) => {
-            const categoryContent = resolve('categories', category);
-            if (!categoryContent.passages?.some(candidate => equal(candidate, passage))) throw new Error('Direction research must match its saved category revision.');
-            resolve('sources', passage.source);
-          });
-        });
-        break;
-      }
     }
   }
   function revise<C extends object, K extends string>(entity: M.Entity<K, C> & C, before: C, content: C, options: EditOptions, reviewOnly = false) {
@@ -234,7 +206,7 @@ export function createProjectStore() {
     };
   }
   function allowedKeys(collection: Collection): readonly string[] {
-    return [...contentKeys[collection], ...(['claims', 'relationships'].includes(collection) ? ['mapPosition'] : []), ...(collection === 'sources' ? ['processingState', 'processingError']
+    return [...contentKeys[collection].filter(key => key !== 'directionReview'), ...(['claims', 'relationships'].includes(collection) ? ['mapPosition'] : []), ...(collection === 'sources' ? ['processingState', 'processingError']
       : collection === 'categories' ? ['order'] : collection === 'explorationNodes' ? ['position', 'coordinateSpace', 'branchAligned'] : [])];
   }
   function add<K extends Collection>(collection: K, input: Input<K>, actor: M.Actor = 'researcher'): Item<K> {
@@ -244,7 +216,6 @@ export function createProjectStore() {
     const entity = {
       ...structuredClone(pick<object>(input, allowedKeys(collection))), id: id(), origin: actor, createdAt: time,
       updatedAt: time, revision: 1, history: [],
-      ...(collection === 'directions' ? { designatedBy: 'researcher' } : {}),
     } as unknown as Item<K>;
     publish({ ...state, [collection]: [...state[collection], entity] });
     return structuredClone(entity);
@@ -285,6 +256,7 @@ export function createProjectStore() {
       assertProjectSnapshot(snapshot);
       publish(snapshot);
     },
+    clearProject(): void { publish(null); },
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => { listeners.delete(listener); };
@@ -427,22 +399,6 @@ export function createProjectStore() {
       const existing = current().dimensionPositions.find(item => item.dimension.id === input.dimension.id);
       return existing ? update('dimensionPositions', existing.id, input, options)
         : add('dimensionPositions', input, options.actor);
-    },
-    createDirection(input: Omit<M.DirectionContent, 'tuningSnapshot'>, positionIds?: M.EntityId<'dimension_position'>[]): M.Direction {
-      const positions = positionIds ? positionIds.map(positionId => find('dimensionPositions', positionId))
-        : current().dimensionPositions.filter(position => position.selected);
-      const tuningSnapshot = positions.map(position => {
-        const dimension = resolve('dimensions', position.dimension);
-        return { dimension: position.dimension, position: { id: position.id, revision: position.revision },
-          dimensionName: dimension.name, lowLabel: dimension.lowLabel, highLabel: dimension.highLabel,
-          selected: position.selected, value: position.value, reasoning: position.reasoning };
-      });
-      return add('directions', { ...input, tuningSnapshot });
-    },
-    updateDirection(entityId: M.EntityId<'direction'>, patch: Partial<Omit<M.DirectionContent, 'tuningSnapshot'>>, options?: EditOptions): M.Direction {
-      // Creation-time tuning is retained even if current positions change later.
-      const { tuningSnapshot: _ignored, ...safePatch } = patch as Partial<M.DirectionContent>;
-      return update('directions', entityId, safePatch, options);
     },
   };
 }
