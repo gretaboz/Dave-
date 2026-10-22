@@ -1,0 +1,88 @@
+/* One workspace geometry and one independently scrollable panel across all stages. */
+.workspace:has(.continuous-workspace) { padding: 12px 16px 16px; }
+.continuous-workspace { display: grid; grid-template-columns: 340px minmax(0, 1fr); grid-template-rows: 38px minmax(0, 1fr); gap: 12px 18px; height: calc(100dvh - 260px); min-height: 560px; }
+.workspace-panel-controls { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; }
+.workspace-panel-controls button { font-size: 11px; padding: 7px 12px; }
+.workspace-panel-controls > span { margin-left: auto; font-size: 11px; color: var(--color-text-muted); }
+.stage-side-panel { grid-column: 1; grid-row: 2; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--color-border); border-radius: 18px; padding: 20px; scrollbar-width: thin; }
+.persistent-map-area { grid-column: 2; grid-row: 2; min-width: 0; min-height: 0; }
+.continuous-workspace[data-panel-side='right'] { grid-template-columns: minmax(0, 1fr) 340px; }
+.continuous-workspace[data-panel-side='right'] .stage-side-panel { grid-column: 2; }
+.continuous-workspace[data-panel-side='right'] .persistent-map-area { grid-column: 1; }
+.continuous-workspace[data-panel-collapsed='true'] { grid-template-columns: minmax(0, 1fr); }
+.continuous-workspace[data-panel-collapsed='true'] .persistent-map-area { grid-column: 1; }
+.persistent-map-area .dimensions-workspace, .persistent-map-area .relationships-layout, .persistent-map-area .relationship-map-shell { height: 100%; min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 0; margin: 0; }
+.persistent-map-area .relationship-map-toolbar { flex: 0 0 80px; margin: 0; gap: 8px; align-content: flex-start; overflow: auto; }
+.persistent-map-area .relationship-map-toolbar > div { display: flex; flex-wrap: wrap; gap: 4px; }
+.persistent-map-area .relationship-map-toolbar button { border-radius: 30px; font-size: 11px; padding: 6px 9px; }
+.persistent-map-area .relationship-map-help { margin: 3px 0; font-size: 10px; line-height: 1.5; }
+.persistent-map-area .relationship-map-canvas { height: 0; min-height: 260px; flex: 1; background: var(--cream); background-image: radial-gradient(#14141422 .7px, transparent .7px); background-size: 18px 18px; border-radius: 18px; }
+.persistent-map-area .map-category { background: var(--cream); border: 1px solid var(--color-border); border-top: 3px solid var(--category-accent); border-radius: 15px; }
+.persistent-map-area .map-category h3 { font: 600 15px/1.4 'DM Sans Variable', 'DM Sans', sans-serif; letter-spacing: -.2px; }
+.map-category-research { pointer-events: auto; max-width: 330px; }
+.map-category-research p { font-size: 13px; line-height: 1.7; color: var(--color-text-muted); }
+.map-category-research .project-button { font-size: 12px; }
+.persistent-map-area .map-claim { font-family: inherit; background: #fff8f1; border-color: var(--color-border); border-left: 3px solid var(--category-accent); }
+.persistent-map-area .map-relationship-node { background: var(--cream); border: 1px solid var(--ink); border-top: 4px solid var(--purple); border-radius: 13px; color: var(--ink); font-family: inherit; }
+.persistent-map-area .map-relationship-node-tension { border-top-color: var(--orange); }
+.persistent-map-area .map-edge path { stroke: var(--purple); }
+.persistent-map-area .map-edge-tension path { stroke: var(--orange); }
+.stage-side-panel .research-organiser, .stage-side-panel .research-folder-workspace, .stage-side-panel .research-layout { display: block !important; }
+.stage-side-panel .research-stage-heading, .stage-side-panel .relationships-stage-heading { display: block; margin-bottom: 20px; }
+.stage-side-panel h2 { font-size: 24px; }
+.stage-side-panel .stage-count { display: inline-block; margin-top: 12px; }
+.stage-side-panel .research-library-heading { display: block; }
+.stage-side-panel .research-mode-switch { flex-wrap: wrap; margin: 12px 0; }
+.stage-side-panel .research-analyse-action { display: block; padding: 14px; }
+.stage-side-panel .research-analyse-button { margin-top: 10px; width: 100%; }
+.stage-side-panel .research-folder-workspace .research-category-list { max-height: none; padding: 0; overflow: visible; }
+.stage-side-panel .research-folder-workspace .research-category-row { padding: 16px; }
+.stage-side-panel .research-category-option > span { font-size: 16px; }
+.stage-side-panel .research-folder-workspace .research-inspector { max-height: none; padding: 16px; }
+.stage-side-panel .research-category-controls { flex-wrap: wrap; }
+.stage-side-panel .research-card-description { font-size: 12px; }
+.stage-side-panel .research-inline-form { min-width: 0; }
+.stage-side-panel .research-field, .stage-side-panel .research-field input { min-width: 0; max-width: 100%; width: 100%; }
+.stage-side-panel .research-excerpt-source { flex-wrap: wrap; }
+.stage-side-panel .research-excerpt-source strong { overflow-wrap: anywhere; }
+.stage-side-panel .research-create-category .research-field { min-width: 0; }
+.stage-side-panel .dimension-stage-panel { height: auto; min-height: 0; padding: 0; border: 0; }
+.stage-side-panel .dimension-controls { overflow: visible; }
+.stage-side-panel .dimension-card-list { overflow: visible; flex: auto; }
+.stage-side-panel .dimension-controls > .dimension-area-heading { margin-top: 10px; }
+.stage-side-panel .dimension-stage-heading br { display: none; }
+.stage-side-panel .relationships-legend { flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.stage-side-panel .exploration-active-branch { justify-content: flex-start; flex-wrap: wrap; }
+.stage-side-panel .exploration-toolbar { gap: 6px; }
+.stage-side-panel .exploration-toolbar button { padding: 9px 11px; }
+.stage-side-panel .shared-item-inspector { padding: 0; border: 0; background: transparent; max-height: none; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.stage-side-panel .shared-item-inspector[data-inspector-open='false'] { display: none; }
+.stage-side-panel:has(.shared-item-inspector[data-inspector-open='true']) { display: flex; flex-direction: column; gap: 20px; }
+.workspace-inspector-host:has(.shared-item-inspector[data-inspector-open='true']) { order: -1; }
+.stage-side-panel .dimension-editor { max-width: none; }
+.stage-side-panel .dimension-editor fieldset { min-width: 0; border: 1px solid var(--color-border); border-radius: 12px; margin: 12px 0; }
+.stage-side-panel .dimension-editor input, .stage-side-panel .dimension-editor textarea, .stage-side-panel .dimension-editor select { max-width: 100%; min-width: 0; }
+.stage-side-panel .inspector-excerpt { padding: 12px; border: 1px solid var(--color-border); border-radius: 12px; }
+@media (max-width: 1000px) {
+  .continuous-workspace { grid-template-columns: 300px minmax(0, 1fr); gap: 10px; }
+  .continuous-workspace[data-panel-side='right'] { grid-template-columns: minmax(0, 1fr) 300px; }
+  .stage-side-panel { padding: 16px; }
+}
+@media (max-width: 650px) {
+  .continuous-workspace, .continuous-workspace[data-panel-side='right'] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 600px; }
+  .stage-side-panel { padding: 10px; }
+  .workspace-panel-controls { flex-wrap: wrap; }
+  .workspace-panel-controls > span { display: none; }
+  .stage-side-panel .dimension-tuning { flex-wrap: wrap; }
+  .stage-side-panel .dimension-tuning button { flex-basis: 100%; }
+  .persistent-map-area .relationship-map-toolbar { flex-basis: 120px; }
+  .continuous-workspace[data-panel-collapsed='true'] { grid-template-columns: minmax(0, 1fr); }
+}
+.persistent-map-area .relationship-map-help { flex: 0 0 30px; height: 30px; overflow: auto; }
+.persistent-map-area .dimensions-workspace { align-items: stretch; }
+.stage-side-panel .on-demand-dimension-controls { border-top: 1px solid var(--color-border); padding-top: 16px; margin-top: 20px; }
+.stage-side-panel .research-layout, .stage-side-panel .research-folder-workspace, .stage-side-panel .research-inspector { min-width: 0; width: 100%; }
+.stage-side-panel .research-category-option { min-width: 0; }
+.stage-side-panel .research-category-option > span { min-width: 0; overflow-wrap: anywhere; }
+.workspace-inspector-host:has(> div[hidden]) { display: none; }
+.stage-side-panel[hidden] { display: none !important; }

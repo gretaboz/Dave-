@@ -1,3 +1,4 @@
+import { useWorkspaceLayout } from '../../app/WorkspaceLayout';
 import { categoryStyle } from '../../app/categoryStyles';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { PointerEvent, ReactNode } from 'react';
@@ -15,12 +16,14 @@ export function RelationshipsMap({project,selection,onSelect,onMove,onReorganise
   exploration?:{content:(scale:number)=>ReactNode;focus?:Point;bounds:{x:number;y:number;width:number;height:number}};
   extension?:{content:ReactNode;height:number;selectedDimensionId?:string|null;associations?:{kind:'claim'|'relationship'|'category';id:string;dimensionId:string}[]};
 }) {
+  const { inspectCategory, openDimensions } = useWorkspaceLayout();
   const associationMarkerId = useId().replaceAll(':', '');
   const [expandedClaimId,setExpandedClaimId]=useState<string|null>(null);
-  const map=deriveMap(project,{expandedClaimId});
+  const map=deriveMap(project,{expandedClaimId, reserveCategorySpace:true});
   const [view,setView]=useState<MapViewport>(()=>project.mapViews?.[stage] ?? {x:20,y:20,scale:.85});
   const viewCache=useRef<Partial<Record<MapStage,MapViewport>>>({...project.mapViews});
   const lastStage=useRef(stage);
+  const lastProject=useRef(project.id);
   const viewDirty=useRef(false);
   useLayoutEffect(()=>{
     if(viewDirty.current && lastStage.current!==stage) {
@@ -28,11 +31,14 @@ export function RelationshipsMap({project,selection,onSelect,onMove,onReorganise
       if(previous)onViewChange?.(lastStage.current,previous);
       viewDirty.current=false;
     }
+    const changedProject = lastProject.current !== project.id;
+    if(changedProject) {
+      lastProject.current = project.id;
+      setView(project.mapViews?.[stage] ?? {x:20,y:20,scale:.85});
+      setExpandedClaimId(null);
+    }
     lastStage.current=stage;
-    const saved=viewCache.current[stage] ?? project.mapViews?.[stage];
-    const x=stage==='Dimensions'?1000:stage==='Explore'?1430:40;
-    setView(saved ?? {x:30-x*.85,y:20,scale:.85});
-    // Entity updates do not refocus the viewport.
+    // Stage changes reveal layers without restoring a different camera.
   },[stage,project.id]);
   useEffect(()=>{
     if(!onViewChange || !viewDirty.current)return;
@@ -106,19 +112,19 @@ export function RelationshipsMap({project,selection,onSelect,onMove,onReorganise
   }
   const visibleRelationships=map.relationships.filter(r=>map.relationshipPositions.has(r.id));
   const relationshipPositions=map.relationshipPositions;
-  const edges=visibleRelationships.flatMap(r=>r.claims.map((ref,port)=>({r,ref,port,route:layeredRelationshipRoute(point(ref.claim.id),map.heights.get(ref.claim.id)!,relationshipPositions.get(r.id)!,port)})));
+  const edges=(stage==='Research'?[]:visibleRelationships).flatMap(r=>r.claims.map((ref,port)=>({r,ref,port,route:layeredRelationshipRoute(point(ref.claim.id),map.heights.get(ref.claim.id)!,relationshipPositions.get(r.id)!,port)})));
   const earlier=map.relationships.filter(r=>relationshipType(r.type)==='unclassified');
-  return <div className="relationship-map-shell"><div className="relationship-map-toolbar"><span>{extension ? 'Design Map' : 'Research relationship map'}</span><div><button onClick={()=>zoom(view.scale/1.2)} aria-label="Zoom out">−</button><span aria-live="polite">{Math.round(view.scale*100)}%</span><button onClick={()=>zoom(view.scale*1.2)} aria-label="Zoom in">+</button><button onClick={fit} title="Keeps text readable. Pan or use the stage focus controls to reach the wider map.">Fit map</button><button onClick={()=>changeView({x:0,y:20,scale:.85})}>Show research</button>{!readOnly && <button onClick={()=>{onReorganise(deriveMap(project,{ignoreManual:true}).positions);setExpandedClaimId(null);changeView({x:20,y:20,scale:.85});}}>Reorganise map</button>}{extension && <button onClick={()=>changeView({x:40-1000*view.scale,y:20,scale:view.scale})}>Show dimensions</button>}{exploration && <button onClick={()=>changeView({x:30-(exploration.focus?.x??exploration.bounds.x)*.85,y:20-(exploration.focus?.y??40)*.85,scale:.85})}>Show exploration</button>}<button onClick={()=>onSelect(null)}>Clear selection</button></div></div>
+  return <div className="relationship-map-shell"><div className="relationship-map-toolbar"><span>{extension ? 'Design Map' : 'Research relationship map'}</span><div><button onClick={()=>zoom(view.scale/1.2)} aria-label="Zoom out">−</button><span aria-live="polite">{Math.round(view.scale*100)}%</span><button onClick={()=>zoom(view.scale*1.2)} aria-label="Zoom in">+</button><button onClick={fit} title="Keeps text readable. Pan or use the stage focus controls to reach the wider map.">Fit map</button><button onClick={()=>changeView({x:0,y:20,scale:.85})}>Show research</button>{!readOnly && <button onClick={()=>{onReorganise(deriveMap(project,{ignoreManual:true}).positions);setExpandedClaimId(null);changeView({x:20,y:20,scale:.85});}}>Reorganise map</button>}{extension && <button onClick={()=>{openDimensions();changeView({x:40-1000*view.scale,y:20,scale:view.scale});}}>Show dimensions</button>}{exploration && <button onClick={()=>changeView({x:30-(exploration.focus?.x??exploration.bounds.x)*.85,y:20-(exploration.focus?.y??40)*.85,scale:.85})}>Show exploration</button>}<button onClick={()=>onSelect(null)}>Clear selection</button></div></div>
   <p className="relationship-map-help">Research categories, claims and relationships. Select a card or node to inspect it. Solid line: Connection. Dashed line: Potential tension, for you to review.</p>
   {earlier.length>0&&<details className="map-earlier-relationships"><summary>{earlier.length} earlier relationships need classification</summary><p>Their original wording and reviews are kept. Inspect each before choosing a type.</p>{earlier.map(r=><button className="research-text-button" key={r.id} onClick={()=>onSelect({kind:'relationship',id:r.id})}>{r.description} · {label(r.review.state)}</button>)}</details>}
   <p className="relationship-map-help">Drag the canvas to pan. Scroll to zoom. {!readOnly && 'Drag cards to arrange them.'} Connections show interpretations, not causality.</p>
   <div ref={host} className="relationship-map-canvas" aria-label={extension ? 'Design Map' : 'Research relationship map'} onPointerDown={e=>start(e,null)} onPointerMove={move} onPointerUp={()=>finish()} onPointerCancel={()=>finish(true)} onWheel={e=>{const rect=e.currentTarget.getBoundingClientRect();zoom(view.scale*(e.deltaY<0?1.1:1/1.1),{x:e.clientX-rect.left,y:e.clientY-rect.top});}}>
   <div className="relationship-map-world" style={{transform:`translate(${view.x}px,${view.y}px) scale(${view.scale})`}}>
-    {extension && <div className="map-dimensions-area" ref={dimensionArea} style={{left:1000,top:40}} onPointerDown={e=>e.stopPropagation()}>{extension.content}</div>}
-    {exploration?.content(view.scale)}
-    {map.regions.map((r,i)=><section key={r.id} className={`map-category map-category-${r.id==='unassigned'?'neutral':i%4}`} style={{...categoryStyle(project,r.id),left:r.x,top:r.y,width:r.width,height:r.height}} aria-label={`Category: ${r.name}`}><h3>{r.name}</h3>{!r.members.length && <p>No grounded claims in this category yet.</p>}</section>)}
+    {stage!=='Research' && extension && <div className="map-dimensions-area" ref={dimensionArea} style={{left:1000,top:40}} onPointerDown={e=>e.stopPropagation()}>{extension.content}</div>}
+    {stage!=='Research' && exploration?.content(view.scale)}
+    {map.regions.map((r,i)=><section key={r.id} className={`map-category map-category-${r.id==='unassigned'?'neutral':i%4}`} style={{...categoryStyle(project,r.id),left:r.x,top:r.y,width:r.width,height:r.height}} aria-label={`Category: ${r.name}`}><h3>{r.name}</h3>{stage==='Research' && <div className="map-category-research"><p>{project.categories.find(c=>c.id===r.id)?.description || 'Research organised in this category.'}</p><button type="button" className="project-button" onPointerDown={e=>e.stopPropagation()} onClick={()=>inspectCategory(r.id)}>Inspect sources</button></div>}{stage!=='Research' && !r.members.length && <p>No grounded claims in this category yet.</p>}</section>)}
     
-    {extension?.associations && <svg className="map-edges" width="1" height="1" overflow="visible"><defs><marker id={associationMarkerId} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="context-stroke" strokeWidth="1.5" /></marker></defs>{extension.associations.map(a=>{
+    {stage!=='Research' && extension?.associations && <svg className="map-edges" width="1" height="1" overflow="visible"><defs><marker id={associationMarkerId} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="context-stroke" strokeWidth="1.5" /></marker></defs>{extension.associations.map(a=>{
       const current=a.kind==='claim'?map.positions.get(a.id):a.kind==='relationship'?relationshipPositions.get(a.id):undefined;
       // A compact claim overview must not erase provenance to earlier findings.
       // Anchor those links at their research category; the dimension inspector
@@ -137,8 +143,8 @@ export function RelationshipsMap({project,selection,onSelect,onMove,onReorganise
       return <path key={`${a.dimensionId}-${a.kind}-${a.id}`} data-association-earlier={!current && a.kind!=='category' ? true : undefined} data-association-from={a.id} data-association-to={a.dimensionId} className="dimension-map-association" data-active={extension.selectedDimensionId===a.dimensionId} markerEnd={`url(#${associationMarkerId})`} d={`M ${x} ${y} C 900 ${y}, 920 ${targetY}, 1000 ${targetY}`} fill="none"><title>{!current && a.kind!=='category' ? 'Earlier associated finding, grouped at its research category. Select the dimension to inspect the original finding.' : 'Associated research. Select the dimension to inspect.'}</title></path>;
     })}</svg>}
     <svg className="map-edges" width="1" height="1" overflow="visible">{edges.map(({r,ref,port,route})=><g key={`${r.id}-${port}`} className={`map-edge ${relationshipType(r.type)==='potential_tension'?'map-edge-tension':''}`} opacity={faded(r.id,'relationship')?.16:.55} data-from={ref.claim.id} data-to={r.id}><path d={route.path}/><circle cx={route.from.x} cy={route.from.y} r={3}/><circle cx={route.to.x} cy={route.to.y} r={3}/></g>)}</svg>
-    {map.claims.map(c=>{const p=point(c.id);const expanded=expandedClaimId===c.id;return <article key={c.id} className="map-node map-claim map-compact-claim" data-map-id={c.id} data-selected={selection?.id===c.id} style={{left:p.x,top:p.y,minHeight:map.heights.get(c.id),opacity:faded(c.id,'claim')?.55:1}} onPointerDown={e=>start(e,{kind:'claim',id:c.id})}><button className="map-claim-heading" aria-label={`${c.statement} ${label(c.review.state)}`} aria-expanded={expanded} onClick={e=>{if(e.detail===0){setExpandedClaimId(id=>id===c.id?null:c.id);onSelect({kind:'claim',id:c.id});}}}><strong>{map.labels.get(c.id)}</strong></button>{expanded&&<><p className="map-expanded-interpretation" onPointerDown={e=>e.stopPropagation()}>{c.statement}</p><button className="research-text-button" onPointerDown={e=>e.stopPropagation()} onClick={()=>onSelect({kind:'claim',id:c.id})}>Inspect research</button></>}<small>{c.origin==='researcher'?'Designer interpretation':'AI interpretation'}</small></article>;})}
-    {visibleRelationships.map(r=>{const p=relationshipPositions.get(r.id)!;return <button key={r.id} className={`map-relationship-node ${relationshipType(r.type)==='potential_tension'?'map-relationship-node-tension':''}`} style={{left:p.x,top:p.y,minHeight:100,opacity:faded(r.id,'relationship')?.55:1}} aria-label={`${relationshipLabels[r.type]}: ${r.description}`} aria-pressed={selection?.id===r.id} onPointerDown={e=>e.stopPropagation()} onClick={()=>onSelect({kind:'relationship',id:r.id})}><strong>{relationshipLabels[r.type]}</strong><span>{relationshipBrief(r)}</span></button>;})}
+    {stage!=='Research' && map.claims.map(c=>{const p=point(c.id);const expanded=expandedClaimId===c.id;return <article key={c.id} className="map-node map-claim map-compact-claim" data-map-id={c.id} data-selected={selection?.id===c.id} style={{...categoryStyle(project,map.associations.get(c.id)?.[0] ?? ''),left:p.x,top:p.y,minHeight:map.heights.get(c.id),opacity:faded(c.id,'claim')?.55:1}} onPointerDown={e=>start(e,{kind:'claim',id:c.id})}><button className="map-claim-heading" aria-label={`${c.statement} ${label(c.review.state)}`} aria-expanded={expanded} onClick={e=>{if(e.detail===0){setExpandedClaimId(id=>id===c.id?null:c.id);onSelect({kind:'claim',id:c.id});}}}><strong>{map.labels.get(c.id)}</strong></button>{expanded&&<><p className="map-expanded-interpretation" onPointerDown={e=>e.stopPropagation()}>{c.statement}</p><button className="research-text-button" onPointerDown={e=>e.stopPropagation()} onClick={()=>onSelect({kind:'claim',id:c.id})}>Inspect research</button></>}<small>{c.origin==='researcher'?'Designer interpretation':'AI interpretation'}</small></article>;})}
+    {stage!=='Research' && visibleRelationships.map(r=>{const p=relationshipPositions.get(r.id)!;return <button key={r.id} className={`map-relationship-node ${relationshipType(r.type)==='potential_tension'?'map-relationship-node-tension':''}`} style={{left:p.x,top:p.y,minHeight:100,opacity:faded(r.id,'relationship')?.55:1}} aria-label={`${relationshipLabels[r.type]}: ${r.description}`} aria-pressed={selection?.id===r.id} onPointerDown={e=>e.stopPropagation()} onClick={()=>onSelect({kind:'relationship',id:r.id})}><strong>{relationshipLabels[r.type]}</strong><span>{relationshipBrief(r)}</span></button>;})}
 
-  </div>{!map.claims.length&&!extension&&<p className="map-empty">No claims yet. Analyse relationships when your research is ready.</p>}</div></div>;
+  </div>{!map.regions.length&&<p className="map-empty">Your map is waiting. Organise research to add categories.</p>}</div></div>;
 }

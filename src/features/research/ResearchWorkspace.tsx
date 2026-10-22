@@ -1,5 +1,6 @@
+import { useWorkspaceLayout } from '../../app/WorkspaceLayout';
 import { categoryStyle } from '../../app/categoryStyles';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import type { EntityId, ResearchCategory, Source } from '../../model/types';
 import { useProject, useProjectStore, useProjectSession } from '../../state/ProjectProvider';
@@ -38,11 +39,20 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
   const { project, status, errorOperation } = useProject();
   const store = useProjectStore();
   const session = useProjectSession();
+  const { categorySelection } = useWorkspaceLayout();
+  const inspectorRef = useRef<HTMLElement>(null);
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const sourceDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (detailsExpanded) sourceDialog.current?.showModal();
+    else sourceDialog.current?.close();
+  }, [detailsExpanded]);
   const [busy, setBusy] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
   const [selectedId, setSelectedId] = useState<EntityId<'source'> | null>(null);
   const [newName, setNewName] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<EntityId<'research_category'> | null>(null);
+  useEffect(() => { if (!categorySelection) return; setSelectedCategoryId(categorySelection.id as EntityId<'research_category'>); setSelectedId(null); const frame = requestAnimationFrame(() => { const inspector = inspectorRef.current; const panel = inspector?.closest<HTMLElement>('.stage-side-panel'); if (inspector && panel) panel.scrollTo({ top: panel.scrollTop + inspector.getBoundingClientRect().top - panel.getBoundingClientRect().top - 16 }); inspector?.focus({ preventScroll: true }); }); return () => cancelAnimationFrame(frame); }, [categorySelection]);
   const [analysisStatus, setAnalysisStatus] = useState('');
   const [analysing, setAnalysing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -170,8 +180,45 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
     finally { setBusy(false); }
   }
 
+  const sourceDetails = <>
+          <h4 className="research-column-title">Sources</h4>
+          {selectedCategory ? <>
+            <h4>{selectedCategory.name}</h4>
+            <p className="research-description-label">{selectedCategory.origin === 'researcher' ? 'Your category description' : selectedCategory.analysis?.promptVersion === 'demo-citrus-1' ? 'Synthetic demo description' : 'DAVE’s category description'}</p>
+            <p className="research-summary">{selectedCategory.description || (selectedCategory.passages ? 'A source was deleted. Analyse again to propose a new summary, or keep exploring the remaining excerpts.' : 'A category organised by you.')}</p>
+            <div className="research-inspector-meta"><span>{selectedCategory.analysis?.promptVersion === 'demo-citrus-1' ? 'Synthetic demo proposal' : selectedCategory.origin === 'dave' ? 'Proposed by DAVE' : selectedCategory.origin === 'dave_edited_by_researcher' ? 'Edited by you' : 'Created by you'}</span>
+            </div>
+            {!selectedCategory.passages && sources.filter(source => source.primaryCategoryId === selectedCategory.id).map(source => <p key={source.id}>
+              <button className="research-text-button" onClick={() => { void original(source); }}>{source.title} · Download original</button>
+            </p>)}
+          </> : selected ? <>
+            <h4>{selected.title}</h4>
+            {selected.processingError && <p role="alert" className="project-error">{selected.processingError}</p>}
+            <button className="research-text-button" disabled={busy || analysing} onClick={() => { void original(selected); }}>Download original</button>
+            {selected.processingState !== 'ready' && <button className="research-text-button" disabled={busy || analysing} onClick={() => { void original(selected, true); }}>Retry text extraction</button>}
+            {selected.preparedContent?.limitations.length ? <details><summary>Extraction limitations</summary><ul>{selected.preparedContent.limitations.map((item, index) => <li key={index}>{item}</li>)}</ul></details> : null}
+            {selected.summary && <p>{selected.summary}</p>}
+          </> : null}
+          {excerpts.size > 0 && <div className="research-supporting-excerpts">
+            <h5>Supporting research</h5>
+            {[...excerpts.entries()].filter(([, excerpt]) => !selectedCategory || excerpt.categoryIds.includes(selectedCategory.id)).map(([key, { passage, categoryIds, categoryNames }]) => {
+              const source = project.sources.find(source => source.id === passage.source.id);
+              const content = source?.revision === passage.source.revision ? source
+                : source?.history.find(entry => entry.revision === passage.source.revision)?.content;
+              const section = content?.preparedContent?.sections[passage.sectionIndex];
+              return source && section ? <ExcerptCard key={key}
+                text={section.text.slice(passage.start, passage.end)} filename={source.originalFile.filename}
+                location={section.location} categoryName={categoryNames.join(' ')} categoryNames={categoryNames}
+                linked={selectedCategory ? categoryIds.includes(selectedCategory.id) : undefined} disabled={busy || analysing}
+                onViewSource={() => { void original(source); }} />
+                : <p key={key} role="alert">The referenced source excerpt is unavailable.</p>;
+            })}
+          </div>}
+  </>;
+
   return (
     <section className="research-workspace research-organiser" aria-label="Research workspace">
+      <div className="research-stage-heading"><div><span className="stage-eyebrow">Make sense of your material</span><h2>Your research, organised<span>.</span></h2></div><span className="stage-count">{visibleCategories.length} categories</span></div>
       {error && <p role="alert" className="project-error">{error}</p>}
       {uploadStatus && <p role="status">{uploadStatus}</p>}
       {analysisStatus && <p role="status" className="research-feedback">{analysisStatus}</p>}
@@ -206,12 +253,14 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
         <section className="research-category-list" aria-label="Research categories">
           <h4>Categories</h4>
           <div className="research-category-options">
-            {visibleCategories.map(category => {
+            {visibleCategories.map((category, index) => {
               const count = new Set(category.passages?.map(p => p.source.id) ?? sources.filter(s => s.primaryCategoryId === category.id).map(s => s.id)).size;
-              return <div key={category.id} className="research-category-row" style={categoryStyle(project, category.id)}><button className="research-category-option" type="button" aria-label={`Inspect ${category.name}`} aria-pressed={selectedCategoryId === category.id}
+              return <div key={category.id} className="research-category-row" style={categoryStyle(project, category.id)}>
+                <span className="research-card-eyebrow"><i />Category {String(index + 1).padStart(2, '0')}</span><button className="research-category-option" type="button" aria-label={`Inspect ${category.name}`} aria-pressed={selectedCategoryId === category.id}
                 onClick={() => { setSelectedCategoryId(category.id); setSelectedId(null); }}>
                 <span>{category.name}</span><small>{category.review?.state === 'rejected' ? 'Rejected' : `${count} ${count === 1 ? 'source' : 'sources'}`}</small>
               </button>
+                {category.description && <p className="research-card-description">{category.description}</p>}
                 <div className="research-category-controls">
                   <CategoryName key={category.id} category={category} onRename={name => !!name.trim() && change(() => store.categories.update(category.id, { name: name.trim() }))} />
                   <button className="research-text-button" type="button" aria-label={`Delete category ${category.name}`} disabled={busy} onClick={() => deleteCategory(category)}>Delete</button>
@@ -221,40 +270,9 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
             {!visibleCategories.length && <p className="research-category-empty">{categories.length ? 'No active categories.' : 'No categories yet.'}</p>}
           </div>
         </section>
-        <section className="research-inspector" aria-label="Research details">
-          <h4 className="research-column-title">Sources</h4>
-          {selectedCategory ? <>
-            <h4>{selectedCategory.name}</h4>
-            <p className="research-description-label">{selectedCategory.origin === 'researcher' ? 'Your category description' : selectedCategory.analysis?.promptVersion === 'demo-citrus-1' ? 'Synthetic demo description' : 'DAVE’s category description'}</p>
-            <p className="research-summary">{selectedCategory.description || (selectedCategory.passages ? 'A source was deleted. Analyse again to propose a new summary, or keep exploring the remaining excerpts.' : 'A category organised by you.')}</p>
-            <div className="research-inspector-meta"><span>{selectedCategory.analysis?.promptVersion === 'demo-citrus-1' ? 'Synthetic demo proposal' : selectedCategory.origin === 'dave' ? 'Proposed by DAVE' : selectedCategory.origin === 'dave_edited_by_researcher' ? 'Edited by you' : 'Created by you'}</span>
-            </div>
-            {!selectedCategory.passages && sources.filter(source => source.primaryCategoryId === selectedCategory.id).map(source => <p key={source.id}>
-              <button className="research-text-button" onClick={() => { void original(source); }}>{source.title} · Download original</button>
-            </p>)}
-          </> : selected ? <>
-            <h4>{selected.title}</h4>
-            {selected.processingError && <p role="alert" className="project-error">{selected.processingError}</p>}
-            <button className="research-text-button" disabled={busy || analysing} onClick={() => { void original(selected); }}>Download original</button>
-            {selected.processingState !== 'ready' && <button className="research-text-button" disabled={busy || analysing} onClick={() => { void original(selected, true); }}>Retry text extraction</button>}
-            {selected.preparedContent?.limitations.length ? <details><summary>Extraction limitations</summary><ul>{selected.preparedContent.limitations.map((item, index) => <li key={index}>{item}</li>)}</ul></details> : null}
-            {selected.summary && <p>{selected.summary}</p>}
-          </> : null}
-          {excerpts.size > 0 && <div className="research-supporting-excerpts">
-            <h5>Supporting research</h5>
-            {[...excerpts.entries()].filter(([, excerpt]) => !selectedCategory || excerpt.categoryIds.includes(selectedCategory.id)).map(([key, { passage, categoryIds, categoryNames }]) => {
-              const source = project.sources.find(source => source.id === passage.source.id);
-              const content = source?.revision === passage.source.revision ? source
-                : source?.history.find(entry => entry.revision === passage.source.revision)?.content;
-              const section = content?.preparedContent?.sections[passage.sectionIndex];
-              return source && section ? <ExcerptCard key={key}
-                text={section.text.slice(passage.start, passage.end)} filename={source.originalFile.filename}
-                location={section.location} categoryName={categoryNames.join(' ')} categoryNames={categoryNames}
-                linked={selectedCategory ? categoryIds.includes(selectedCategory.id) : undefined} disabled={busy || analysing}
-                onViewSource={() => { void original(source); }} />
-                : <p key={key} role="alert">The referenced source excerpt is unavailable.</p>;
-            })}
-          </div>}
+        <section ref={inspectorRef} tabIndex={-1} className="research-inspector" aria-label="Research details">
+          <button className="research-text-button research-open-details" type="button" onClick={() => setDetailsExpanded(true)}>Open source details ↗</button>
+          {!detailsExpanded && sourceDetails}
         </section>
       </div>
       </div>
@@ -265,6 +283,11 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
             <button className="project-button" disabled={!newName.trim() || busy}>Create category</button>
           </form>
       </section>
+      <dialog ref={sourceDialog} className="research-source-dialog" aria-label="Source details" onClose={() => setDetailsExpanded(false)}>
+        <button className="research-dialog-close research-text-button" type="button" aria-label="Close source details" onClick={() => setDetailsExpanded(false)}>×</button>
+        <span className="stage-eyebrow">Supporting research</span>
+        {detailsExpanded && sourceDetails}
+      </dialog>
     </section>
   );
 }

@@ -54,7 +54,7 @@
   --color-accent-b9afc9: #b9afc9;
   --color-accent-9883ad: #9883ad;
 
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'DM Sans Variable', 'DM Sans', Arial, sans-serif;
   color: var(--color-text);
   background: var(--color-page);
   font-synthesis: none;
@@ -631,3 +631,166 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 .project-library li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .project-delete { display: inline-flex; padding: .5rem; }
+
+/* Shared UI foundation — workspace composition remains owned by each stage. */
+:root {
+  --ink: #141414;
+  --cream: #fff3e7;
+  --pink: #e85599;
+  --blue: #3ac7ff;
+  --purple: #a609f0;
+  --lime: #bdf522;
+  --orange: #fe8616;
+  --color-text: var(--ink);
+  --color-text-muted: #756f69;
+  --color-page: var(--cream);
+  --color-surface: var(--cream);
+  --color-surface-secondary: #fff8f1;
+  --color-hover: #1414140b;
+  --color-selected: #1414140e;
+  --color-border: #14141424;
+  --color-border-strong: #14141466;
+  --color-action: var(--ink);
+  --color-focus: var(--purple);
+  --shell-spacing: 28px;
+  background: var(--ink);
+  font-size: 14px;
+}
+
+.app-shell {
+  max-width: 1920px;
+  margin: auto;
+  padding: 0 var(--shell-spacing) 28px;
+}
+
+.app-header {
+  min-height: 126px;
+  background: var(--ink);
+  padding: 18px 0;
+  border: 0;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 20px;
+  color: var(--cream);
+}
+
+.app-logo { width: 90px; height: 90px; object-fit: contain; flex: 0 0 auto; }
+.app-header .project-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 24px;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding-left: 24px;
+  border-left: 1px solid #fff3e733;
+}
+.project-eyebrow { display: block; font-size: 10px; font-weight: 650; letter-spacing: 1.7px; text-transform: uppercase; color: #fff3e7a6; margin-bottom: 7px; }
+.app-header .project-summary { grid-column: 1; grid-row: 1; min-width: 0; }
+.app-header .project-title-row { align-items: center; gap: 10px; }
+.app-header .project-title-row h3 { margin: 0; font-size: 25px; font-weight: 500; letter-spacing: -.8px; line-height: 1.3; overflow-wrap: anywhere; }
+.app-header .project-status { grid-column: 1; grid-row: 2; margin: 6px 0 0; font-size: 11px; color: #fff3e7b8; }
+.app-header .project-controls { grid-column: 2; grid-row: 1 / 3; margin: 0; gap: 12px; justify-content: flex-end; }
+.app-header .project-controls .project-button { padding: 13px 21px; border-color: #fff3e740; color: var(--cream); background: transparent; }
+.app-header .project-controls .project-button:last-child { background: var(--cream); color: var(--ink); border-color: var(--cream); }
+.app-header .project-controls .project-button:hover:not(:disabled) { background: #fff3e71c; }
+.app-header .project-controls .project-button:last-child:hover:not(:disabled) { background: #eddfd2; }
+.app-header .project-title-row .research-text-button,
+.app-header .research-inline-form .research-text-button { color: var(--cream); }
+.app-header .research-inline-form { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; }
+.app-header .research-inline-form .research-field { flex: 1; min-width: min(200px, 100%); }
+.app-header .project-form,
+.app-header .project-library,
+.app-header .project-error {
+  grid-column: 1 / -1;
+  margin: 20px 0 0;
+  padding: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  background: var(--cream);
+  color: var(--ink);
+}
+.app-header .project-form { max-width: 640px; }
+.app-header .project-library ul { max-width: none; }
+.app-header .project-error { border-color: var(--color-error); }
+
+.workflow {
+  margin: 0;
+  flex-shrink: 0;
+  padding: 0 32px;
+  min-height: 91px;
+  display: flex;
+  align-items: center;
+  background: var(--cream);
+  border-radius: 25px 25px 0 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.workflow-stages { gap: 18px; padding: 0; }
+.workflow-stage { gap: 18px; }
+.workflow-connector { width: 24px; height: 1px; background: var(--color-border); font-size: 0; flex: 0 0 auto; }
+.workflow-button { gap: 9px; padding: 10px 0; border: 0; border-radius: 6px; font-size: 14px; }
+.workflow-number { display: grid; place-items: center; width: 25px; height: 25px; flex: 0 0 auto; font-size: 10px; border: 1px solid var(--color-border); border-radius: 50%; }
+.workflow-button[aria-current='step'] { background: transparent; font-weight: 700; }
+.workflow-button[aria-current='step'] .workflow-number { background: var(--pink); border-color: var(--pink); }
+.workflow-button:hover { background: var(--color-hover); }
+.workspace {
+  margin: 0;
+  padding: 28px 34px;
+  min-width: 0;
+  min-height: calc(100dvh - 245px);
+  border: 0;
+  border-radius: 0 0 25px 25px;
+  background: var(--cream);
+}
+
+/* Shared controls inherit the foundation without replacing category colours. */
+button, input, select, textarea { font-family: inherit; }
+.project-button { border-radius: 100px; background: transparent; }
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']), textarea, select {
+  background-color: #ffffff59;
+  color: var(--ink);
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  padding: 10px 12px;
+  font: inherit;
+  max-width: 100%;
+}
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible {
+  outline: 3px solid var(--purple);
+  outline-offset: 3px;
+}
+.project-library li { border-color: var(--color-border); }
+.research-source-button { border-radius: 12px; }
+
+@media (max-width: 1100px) {
+  :root { --shell-spacing: 18px; }
+  .workspace { padding: 25px 23px; }
+  .workflow { padding: 0 25px; }
+  .workflow-stages, .workflow-stage { gap: 12px; }
+}
+@media (max-width: 760px) {
+  :root { --shell-spacing: 10px; }
+  .app-shell { padding-bottom: 10px; }
+  .app-header { min-height: 100px; gap: 8px; padding: 12px 0; }
+  .app-logo { width: 65px; height: 65px; }
+  .app-header .project-workspace { padding-left: 10px; column-gap: 10px; }
+  .app-header .project-title-row h3 { font-size: 18px; letter-spacing: -.4px; }
+  .project-eyebrow { font-size: 8px; }
+  .app-header .project-controls { gap: 5px; flex-wrap: wrap; }
+  .app-header .project-controls .project-button { padding: 9px; font-size: 11px; }
+  .workflow { min-height: 75px; padding: 0 15px; }
+  .workflow-stages, .workflow-stage { gap: 10px; }
+  .workflow-button { font-size: 12px; gap: 5px; }
+  .workflow-number { width: 21px; height: 21px; font-size: 9px; }
+  .workflow-connector { width: 8px; }
+  .workspace { padding: 25px 18px; }
+}
+@media (max-width: 480px) {
+  .app-header .project-controls { grid-column: 1 / -1; grid-row: 3; justify-content: flex-start; margin-top: 12px; }
+  .app-header .project-form, .app-header .project-library, .app-header .project-error { padding: 16px; }
+}
+
+/* Keep primary action contrast when it also uses the shared button class. */
+.project-button.research-analyse-button { background: var(--ink); color: var(--cream); border-color: var(--ink); }
+.project-button.research-analyse-button:disabled { background: var(--color-selected); color: var(--color-text-muted); border-color: var(--color-border); }
