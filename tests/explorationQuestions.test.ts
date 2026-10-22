@@ -8,7 +8,7 @@ function setup(){
  const store=createProjectStore();store.createProject({name:'Press',context:'A citrus press for people with limited strength.'});
  const source=store.sources.add({title:'Interview',originalFile:{id:'asset' as never,filename:'test.txt',mediaType:'text/plain'},processingState:'ready',limitations:[]});
  const evidence=store.evidence.add({source:{id:source.id,revision:1},text:'I avoid washing extra parts.',form:'quotation',location:'Paragraph 1',context:'One participant',limitations:[]});
- const claim=store.claims.add({statement:'Cleanup effort discourages use.',evidence:[{id:evidence.id,revision:1}],limitations:[],review:{state:'accepted'}});
+ const claim=store.claims.add({statement:'Cleanup effort discourages use.',evidence:[{id:evidence.id,revision:1}],context:'One participant',limitations:[],review:{state:'accepted'}});
  const d=store.dimensions.add({name:'Cleaning',explanation:'Cleaning effort',lowLabel:'Quick rinse',midLabel:'Easy cleaning',highLabel:'Deep cleaning',claims:[{id:claim.id,revision:1}],relationships:[],limitations:[],review:{state:'accepted'}});
  const p=store.setDimensionPosition({dimension:{id:d.id,revision:1},selected:true,value:.5});store.confirmExploration();return {store,p};
 }
@@ -19,7 +19,7 @@ test('questions retain provenance, confirmed tuning and only the selected branch
  const a=idea('A: integrated cleaning surface'),b=idea('B: unrelated secret sibling');
  store.explorationConnections.add({fromNodeId:q.id,toNodeId:a.id,directional:true});store.explorationConnections.add({fromNodeId:q.id,toNodeId:b.id,directional:true});
  store.setDimensionPosition({...p,value:1});project=store.getProject()!;
- const follow=prepareQuestion(project,a.id,'followup');assert.equal(follow.settings[0].value,.5);assert.deepEqual(follow.branch.map(n=>n.id),[q.id,a.id]);assert.ok(!JSON.stringify(follow).includes(b.content.text));
+ const follow=prepareQuestion(project,a.id,'followup');assert.equal(follow.settings[0].value,.5);assert.deepEqual(follow.branch.map(n=>n.id),[q.id,a.id]);assert.ok(typeof b.content.text === 'string', 'Sibling idea must contain text');assert.ok(!JSON.stringify(follow).includes(b.content.text));
  const next=applyQuestion(project,follow,output(follow,'How would someone clean that surface using only one hand?'));assert.equal(next.node.branchParent?.id,a.id);assert.equal(next.node.origin,'dave');assert.equal(next.node.question?.questionPurpose,'explore_alternatives');assert.equal(q.question?.questionPurpose,'open_possibilities');assert.equal(next.node.question?.considered.claims.length,1);assert.equal(next.project.explorationNodes.length,4);
 });
 test('stale edits, fabricated references and duplicate questions leave project untouched; movements preserve pending context',()=>{
