@@ -1,0 +1,137 @@
+/* Presentation for the final two stages; the shared map retains its own coordinates. */
+.workspace-dimensions .dimensions-workspace { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 28px; align-items: start; }
+.dimension-stage-panel { display: flex; flex-direction: column; min-width: 0; height: min(1000px, calc(100dvh - 270px)); min-height: 650px; border-right: 1px solid var(--color-border); padding-right: 24px; }
+.dimension-stage-heading h2, .exploration-stage-heading h2 { margin: 0; font-size: 28px; font-weight: 500; letter-spacing: -1px; line-height: 1.2; }
+.dimension-stage-heading h2 span, .exploration-stage-heading h2 span { color: var(--pink); }
+.dimension-stage-panel > p { color: var(--color-text-muted); font-size: 12px; line-height: 1.8; }
+.dimension-stage-panel > .relationship-map-help { font-size: 10px; }
+.dimension-stage-panel > .project-button { order: 3; flex-shrink: 0; width: 100%; padding: 13px 16px; margin-top: 16px; background: var(--ink); border-color: var(--ink); color: var(--cream); font-size: 12px; }
+.dimension-stage-panel > .project-button:disabled { background: var(--color-selected); color: var(--color-text-muted); border-color: var(--color-border); opacity: 1; }
+.dimension-stage-panel > [role='alert'] { color: var(--color-error); border: 1px solid currentColor; border-radius: 12px; padding: 12px; }
+.dimension-stage-panel > [role='status'] { color: var(--color-text); border-left: 3px solid var(--pink); padding-left: 12px; }
+.workspace-dimensions .dimension-controls { display: flex; flex-direction: column; overflow: auto; min-height: 0; flex: 1; scrollbar-width: thin; padding-right: 5px; }
+.workspace-dimensions .dimension-controls > .dimension-area-heading { order: 2; margin-top: auto; padding: 16px 0 0; border-top: 1px solid var(--color-border); flex-wrap: wrap; gap: 8px; }
+.workspace-dimensions .dimension-controls > .dimension-area-heading h3 { font-size: 13px; font-weight: 500; margin: 0; }
+.workspace-dimensions .dimension-controls > .dimension-area-heading > .project-button:not(.dimension-confirm-map) { margin-left: auto; font-size: 11px; padding: 8px 12px; }
+.workspace-dimensions .dimension-confirm-map { margin: 0; padding: 13px 16px; border-radius: 30px; background: var(--ink); color: var(--cream); font-size: 12px; }
+.workspace-dimensions .dimension-confirm-map:disabled { background: var(--color-selected); color: var(--color-text-muted); border-color: var(--color-border); opacity: 1; }
+.workspace-dimensions .dimension-empty-state { padding: 28px 0; }
+.workspace-dimensions .dimension-empty-state > span { display: grid; place-items: center; height: 52px; width: 52px; font-size: 30px; border-radius: 15px; background: var(--lime); border: 1px solid var(--ink); margin-bottom: 20px; }
+.workspace-dimensions .dimension-empty-state h3 { font-size: 19px; font-weight: 500; letter-spacing: -.4px; margin: 0 0 12px; }
+.workspace-dimensions .dimension-empty-state .dimension-empty { font-size: 12px; line-height: 1.8; }
+.workspace-dimensions .dimension-card, .workspace-exploration .dimension-card { background: #ffffff44; border: 1px solid var(--color-border); border-radius: 13px; padding: 18px 15px; margin: 0 0 12px; font-family: inherit; }
+.workspace-dimensions .dimension-card .dimension-area-heading { align-items: flex-start; gap: 8px; }
+.workspace-dimensions .dimension-card h4 { font-size: 15px; font-weight: 550; line-height: 1.5; letter-spacing: -.2px; }
+.workspace-dimensions .dimension-card .research-text-button { font-size: 10px; padding: 3px 0; }
+.workspace-dimensions .dimension-card > .dimension-explanation { display: block; overflow: visible; -webkit-line-clamp: unset; font-size: 12px; line-height: 1.7; margin: 12px 0; color: var(--color-text-muted); }
+.dimension-origin { display: block; margin: 10px 0 5px; font-size: 10px; color: var(--color-text-muted); }
+.workspace-dimensions .dimension-association { font-size: 11px; line-height: 1.6; }
+.workspace-dimensions .dimension-tuning, .workspace-exploration .dimension-tuning { display: flex; gap: 5px; margin: 14px 0 10px; }
+.workspace-dimensions .dimension-tuning button, .workspace-exploration .dimension-tuning button { display: flex; flex-direction: column; gap: 5px; min-width: 0; align-items: center; padding: 8px 5px; background: var(--cream); color: var(--ink); border: 1px solid var(--color-border); border-radius: 7px; font: inherit; font-size: 12px; }
+.workspace-dimensions .dimension-tuning button small, .workspace-exploration .dimension-tuning button small { font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; font-weight: 400; }
+.workspace-dimensions .dimension-tuning button[aria-pressed='true'], .workspace-exploration .dimension-tuning button[aria-pressed='true'] { background: var(--pink); border-color: var(--ink); color: var(--ink); }
+.workspace-dimensions .dimension-tuning button:hover, .workspace-exploration .dimension-tuning button:hover { border-color: var(--ink); }
+.workspace-dimensions .dimension-selected-label { display: block; font-size: 12px; line-height: 1.5; margin-bottom: 10px; }
+.workspace-dimensions .dimension-card details { font-size: 11px; line-height: 1.65; color: var(--color-text-muted); margin-bottom: 10px; }
+.workspace-dimensions .dimension-card[data-selected='true'] { border-color: var(--pink); outline: 1px solid var(--pink); background: #ffffff66; }
+.workspace-dimensions .relationships-map-layout { grid-template-columns: minmax(0, 1fr); margin: 0; gap: 20px; min-width: 0; }
+.workspace-dimensions .relationships-map-layout > aside[data-inspector-open='false'] { display: none; }
+.dimension-map-references h3 { font-size: 16px; font-weight: 550; margin: 0 0 16px; }
+.dimension-map-reference { display: block; width: 100%; text-align: left; padding: 14px; margin: 12px 0; background: var(--cream); color: var(--ink); border: 1px solid var(--color-border); border-radius: 13px; font: inherit; cursor: pointer; }
+.dimension-map-reference small { display: block; font-size: 10px; color: var(--color-text-muted); margin-top: 8px; }
+.dimension-map-reference[aria-pressed='true'] { border-color: var(--pink); outline: 2px solid var(--pink); }
+
+/* Map styling is scoped to Dimensions and Exploration, leaving earlier stages alone. */
+:is(.workspace-dimensions, .workspace-exploration) .relationship-map-toolbar { gap: 12px; }
+:is(.workspace-dimensions, .workspace-exploration) .relationship-map-toolbar > span { font-size: 13px; font-weight: 550; }
+:is(.workspace-dimensions, .workspace-exploration) .relationship-map-toolbar > div { flex-wrap: wrap; gap: 5px; }
+:is(.workspace-dimensions, .workspace-exploration) .relationship-map-toolbar button { font-size: 11px; border-radius: 30px; padding: 8px 11px; background: var(--cream); }
+:is(.workspace-dimensions, .workspace-exploration) .relationship-map-help { font-size: 10px; line-height: 1.6; }
+:is(.workspace-dimensions, .workspace-exploration) .relationship-map-canvas { background-color: var(--cream); background-image: radial-gradient(#14141418 .7px, transparent .7px); background-size: 18px 18px; border-radius: 18px; height: 650px; }
+:is(.workspace-dimensions, .workspace-exploration) .map-dimensions-area { border-radius: 15px; background: var(--cream); border-color: var(--color-border); }
+:is(.workspace-dimensions, .workspace-exploration) .map-category { background: var(--cream); border-color: var(--color-border); border-top: 3px solid var(--category-accent); border-radius: 15px; }
+:is(.workspace-dimensions, .workspace-exploration) .map-category h3 { font-family: inherit; font-size: 15px; font-weight: 600; letter-spacing: -.2px; }
+:is(.workspace-dimensions, .workspace-exploration) .map-category p { font-size: 12px; color: var(--color-text-muted); }
+:is(.workspace-dimensions, .workspace-exploration) .map-claim { font-family: inherit; border-color: var(--color-border); border-left: 3px solid var(--category-accent); background: #fff8f1; border-radius: 8px; }
+:is(.workspace-dimensions, .workspace-exploration) .map-claim strong { font-size: 13px; font-weight: 500; }
+:is(.workspace-dimensions, .workspace-exploration) .map-relationship-node { border: 1px solid var(--ink); border-top: 4px solid var(--purple); background: var(--cream); color: var(--ink); border-radius: 13px; font-family: inherit; box-shadow: 3px 3px 0 #14141412; }
+:is(.workspace-dimensions, .workspace-exploration) .map-relationship-node strong { font-size: 10px; font-weight: 500; text-transform: none; }
+:is(.workspace-dimensions, .workspace-exploration) .map-relationship-node-tension { border-top-color: var(--orange); }
+:is(.workspace-dimensions, .workspace-exploration) .map-edge path { stroke: var(--purple); }
+:is(.workspace-dimensions, .workspace-exploration) .map-edge circle { fill: var(--purple); }
+:is(.workspace-dimensions, .workspace-exploration) .map-edge-tension path { stroke: var(--orange); }
+:is(.workspace-dimensions, .workspace-exploration) .map-edge-tension circle { fill: var(--orange); }
+:is(.workspace-dimensions, .workspace-exploration) .relationships-map-layout > aside { background: #ffffff30; padding: 22px; border: 1px solid var(--color-border); border-radius: 18px; max-height: none; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+:is(.workspace-dimensions, .workspace-exploration) .dimension-editor { max-width: none; min-width: 0; font-size: 12px; }
+:is(.workspace-dimensions, .workspace-exploration) .dimension-editor fieldset { border: 1px solid var(--color-border); border-radius: 12px; padding: 14px; min-width: 0; }
+:is(.workspace-dimensions, .workspace-exploration) .dimension-editor .research-field { max-width: none; }
+:is(.workspace-dimensions, .workspace-exploration) .inspector-excerpt { padding: 14px; border: 1px solid var(--color-border); border-radius: 12px; }
+:is(.workspace-dimensions, .workspace-exploration) .inspector-excerpt blockquote { line-height: 1.7; }
+:is(.workspace-dimensions, .workspace-exploration) summary { cursor: pointer; }
+
+.exploration-stage-heading { margin-bottom: 20px; }
+.workspace-exploration .exploration-tools { position: relative; margin-bottom: 24px; }
+.workspace-exploration .exploration-active-branch { margin: 0 0 16px; justify-content: flex-end; font-size: 11px; color: var(--color-text-muted); }
+.workspace-exploration .exploration-active-branch select { border-radius: 30px; background: transparent; padding: 10px 14px; color: var(--ink); max-width: min(320px, 65vw); }
+.workspace-exploration .exploration-toolbar { gap: 8px; padding: 0; }
+.workspace-exploration .exploration-toolbar button { border-radius: 30px; padding: 11px 15px; font-size: 12px; background: transparent; }
+.workspace-exploration .exploration-toolbar button:first-child { background: var(--ink); border-color: var(--ink); color: var(--cream); }
+.workspace-exploration .exploration-toolbar button:disabled { opacity: .5; cursor: default; }
+.workspace-exploration .exploration-toolbar button[aria-pressed='true'] { background: var(--pink); color: var(--ink); border-color: var(--ink); }
+.workspace-exploration .exploration-help { font-size: 11px; line-height: 1.6; }
+.workspace-exploration .exploration-tools > [role='alert'] { padding: 12px 16px; border: 1px solid var(--color-error); border-radius: 12px; color: var(--color-error); }
+.workspace-exploration .exploration-tools > [role='status'], .workspace-exploration .exploration-toolbar > [role='status'] { line-height: 1.6; }
+.workspace-exploration .relationships-map-layout { grid-template-columns: minmax(0, 1fr) 270px; gap: 24px; }
+.workspace-exploration .workspace-inspector-guide { padding: 10px 0; }
+.workspace-inspector-guide h3 { font-size: 21px; font-weight: 500; line-height: 1.4; letter-spacing: -.5px; }
+.workspace-inspector-guide p { color: var(--color-text-muted); font-size: 12px; line-height: 1.8; }
+.workspace-exploration .exploration-card { display: flex; flex-direction: column; gap: 7px; padding: 17px 18px; border: 1px solid var(--color-border); border-top: 4px solid var(--blue); border-radius: 15px; background: var(--cream); box-shadow: none; font-family: inherit; }
+.workspace-exploration .exploration-card[data-content-type='note'] { border-top-color: var(--lime); }
+.workspace-exploration .exploration-card[data-content-type='sketch'], .workspace-exploration .exploration-card[data-content-type='image'] { border-top-color: var(--pink); }
+.workspace-exploration .exploration-card.exploration-question { border-top-color: var(--purple); }
+.workspace-exploration .exploration-card.is-selected { outline: 2px solid var(--ink); outline-offset: 3px; box-shadow: 3px 4px 0 #14141418; }
+.workspace-exploration .exploration-card.is-skipped { opacity: .65; }
+.exploration-card-eyebrow { display: block; font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.2px; flex-shrink: 0; }
+.workspace-exploration .exploration-card .exploration-card-title { font-size: 14px; font-weight: 550; line-height: 1.4; white-space: normal; max-height: 42px; overflow: auto; flex-shrink: 0; }
+.workspace-exploration .exploration-card p { font-size: 13px; line-height: 1.7; flex: 1; min-height: 0; height: auto; margin: 0; }
+.workspace-exploration .exploration-card > small { font-size: 9px; color: var(--color-text-muted); }
+.workspace-exploration .exploration-question-actions { margin: 0; gap: 4px 10px; flex-shrink: 0; }
+.workspace-exploration .exploration-question-actions button { color: var(--ink); font-size: 10px; }
+.workspace-exploration .exploration-question-actions button:hover { text-decoration: underline; }
+.workspace-exploration .exploration-card .exploration-card-edit { font-size: 10px; align-self: flex-start; }
+.workspace-exploration .exploration-thumbnail { background: #ffffff55; border-radius: 6px; }
+.exploration-image-overlay { background: var(--cream); border: 1px solid var(--ink); border-radius: 22px; box-shadow: 0 0 0 100vmax #14141488; }
+.workspace-exploration .exploration-branch { border: 1px solid var(--ink); border-top: 4px solid var(--blue); border-radius: 15px; background: var(--cream); padding: 12px 16px; box-shadow: none; }
+.workspace-exploration .exploration-branch.is-active { background: var(--cream); box-shadow: 3px 4px 0 #14141418; outline: 1px solid var(--blue); outline-offset: 2px; }
+.workspace-exploration .exploration-branch-name { font-size: 17px; font-weight: 500 !important; }
+.workspace-exploration .exploration-branch > small { font-size: 10px; }
+.workspace-exploration .exploration-branch-settings li { border-color: var(--color-border); font-size: 11px; line-height: 1.6; }
+.workspace-exploration .exploration-branch-settings li span { color: var(--ink); }
+.workspace-exploration .exploration-branch-settings .research-text-button { font-size: 11px; color: var(--color-text-muted); }
+.workspace-exploration .exploration-arrows line:not(.exploration-arrow-hit) { stroke: var(--color-text-muted); }
+.workspace-exploration .exploration-arrows g[data-selected='true'] > line:first-of-type { stroke: var(--purple); }
+.workspace-exploration .exploration-branch-change { color: var(--color-text-muted); }
+@media (max-width: 1100px) {
+  .workspace-dimensions .dimensions-workspace { grid-template-columns: 290px minmax(0, 1fr); gap: 20px; }
+  .dimension-stage-panel { padding-right: 18px; }
+  .workspace-exploration .relationships-map-layout { grid-template-columns: minmax(0, 1fr) 240px; gap: 18px; }
+}
+@media (max-width: 850px) {
+  .workspace-dimensions .dimensions-workspace, .workspace-exploration .relationships-map-layout { grid-template-columns: minmax(0, 1fr); }
+  .dimension-stage-panel { height: auto; max-height: none; min-height: 0; border-right: 0; padding: 0 0 24px; border-bottom: 1px solid var(--color-border); }
+  .workspace-dimensions .dimension-controls { overflow: visible; }
+  .workspace-dimensions .dimension-card h4 { font-size: 17px; }
+  .workspace-dimensions .dimension-stage-heading br { display: none; }
+  .workspace-exploration .exploration-active-branch { justify-content: flex-start; }
+  :is(.workspace-dimensions, .workspace-exploration) .relationship-map-toolbar > div { min-width: 0; }
+}
+/* Leave a clear card surface for dragging alongside the editable text. */
+.workspace-exploration .exploration-card:not(.exploration-question):not(:has(.exploration-thumbnail)) p { flex: 0 1 68px; height: 68px; }
+.workspace-exploration .exploration-card .exploration-card-edit { margin-top: auto; }
+
+.workspace-dimensions .dimension-controls { overflow: visible; }
+.workspace-dimensions .dimension-card-list { flex: 1; min-height: 0; overflow: auto; scrollbar-width: thin; padding: 2px; }
+.workspace-dimensions .dimension-controls > .dimension-area-heading { flex-shrink: 0; background: var(--cream); }
+.workspace-dimensions .dimension-card .dimension-area-heading h4 { min-width: 0; flex: 1; }
+.workspace-dimensions .dimension-card .dimension-area-heading .research-text-button { flex-shrink: 0; white-space: nowrap; }
+@media (max-width: 850px) { .workspace-dimensions .dimension-card-list { overflow: visible; } }

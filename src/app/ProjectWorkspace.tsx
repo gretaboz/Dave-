@@ -42,6 +42,7 @@ export const ProjectWorkspace = memo(function ProjectWorkspace({ onProjectOpened
       )}
       {project && (
         <div className="project-summary">
+          <span className="project-eyebrow">Your workspace</span>
           {editingName ? <form className="research-inline-form" onSubmit={event => {
             event.preventDefault();
             if (!name.trim()) return;

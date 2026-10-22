@@ -27,14 +27,14 @@ export function claimCategories(project: Project, claim: Claim): string[] {
   }
   return active.filter(c => counts.has(c.id)).sort((a,b) => counts.get(b.id)! - counts.get(a.id)! || a.order - b.order || a.id.localeCompare(b.id)).map(c => c.id);
 }
-export function deriveMap(project: Project, options: {ignoreManual?:boolean;expandedClaimId?:string|null}={}) {
+export function deriveMap(project: Project, options: {ignoreManual?:boolean;expandedClaimId?:string|null;reserveCategorySpace?:boolean}={}) {
  const claims=project.claims.filter(c=>!c.archivedAt),relationships=project.relationships.filter(r=>!r.archivedAt);
  const labels=claimMapLabels(claims),associations=new Map(claims.map(c=>[c.id,claimCategories(project,c)]));
  const heights=new Map<string,number>(claims.map(c=>[c.id,c.id===options.expandedClaimId?220:80]));
  const categories=project.categories.filter(c=>!c.archivedAt&&c.review?.state!=='rejected').sort((a,b)=>a.order-b.order);
  const groups=[...categories.map(c=>({id:c.id as string,name:c.name})),...(claims.some(c=>!associations.get(c.id)?.length)?[{id:'unassigned',name:'Unassigned'}]:[])];
  const regions=groups.map(g=>{const members=claims.filter(c=>(associations.get(c.id)?.[0]??'unassigned')===g.id);const rowHeights=members.map(c=>heights.get(c.id)!);const headerHeight=Math.max(56,20+Math.ceil(g.name.length/38)*20);return {...g,members,x:40,y:0,columns:1,width:400,headerHeight,height:headerHeight+20+rowHeights.reduce((sum,h)=>sum+h+12,0),rowHeights};});
- let y=40;for(const r of regions){r.y=y;y+=r.height+24;}
+ let y=40;for(const r of regions){r.y=y;if(options.reserveCategorySpace)r.height=Math.max(700,r.height);y+=r.height+24;}
  const positions=new Map<string,Point>();
  for(const r of regions){const slots:Point[]=[];let rowY=r.y+r.headerHeight;for(const h of r.rowHeights){for(let j=0;j<r.columns;j++)slots.push({x:r.x+25+j*290,y:rowY});rowY+=h+12;}
    const placed:{id:string;p:Point}[]=[];

@@ -70,7 +70,8 @@ test('confirmation, one map, edits, branching, arrows, deletion, camera continui
  await stage('Research');await stage('Relationships');assert.equal(await map.getAttribute('data-same-canvas'),'yes');await stage('Dimensions');
  await page.getByRole('button',{name:'Show dimensions',exact:true}).click();await page.getByRole('button',{name:'+1: Guided',exact:true}).click();await save();
  assert.deepEqual((await snapshot()).exploration.sessions[0],confirmed);
- await stage('Exploration');assert.equal(await world.getAttribute('style'),camera);await world.getByText('Current sliders have changed.',{exact:false}).waitFor();
+ const sharedCamera=await world.getAttribute('style');assert.notEqual(sharedCamera,camera);
+ await stage('Exploration');assert.equal(await world.getAttribute('style'),sharedCamera);await world.getByText('Current sliders have changed.',{exact:false}).waitFor();
  await page.getByRole('button',{name:'Add text',exact:true}).click();await fill('Fourth idea','Still uses confirmed context');
  p=await snapshot();assert.equal(p.explorationNodes.at(-1).dimensionPositions[0].revision,1);assert.deepEqual(p.exploration.sessions[0],confirmed);
  await stage('Dimensions');await page.getByRole('button',{name:'Confirm tuning',exact:true}).click();await save();p=await snapshot();assert.equal(p.exploration.sessions.length,2);assert.equal(p.exploration.sessions[1].tuningSnapshot[0].positionLabel,'Guided');assert.deepEqual(p.exploration.sessions[0],confirmed);

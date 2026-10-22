@@ -84,7 +84,7 @@ test('category selection shows only linked excerpts and preserves the file libra
   } finally { await context.close(); }
 });
 
-test('wireframe layout places library before analysis and keeps connected columns side by side', async () => {
+test('redesigned layout keeps upload and analysis above category cards beside the research map', async () => {
   const context = await browser.newContext(); const page = await context.newPage();
   try {
     await page.setViewportSize({ width: 1100, height: 1000 });
@@ -97,20 +97,20 @@ test('wireframe layout places library before analysis and keeps connected column
     await library.locator('.research-library-files > summary').click();
     const positions = await page.evaluate(() => {
       const rect = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right }; };
-      return { library: rect('.research-library'), analyse: rect('.research-analyse-action'), categories: rect('.research-category-list'), sources: rect('.research-inspector') };
+      return { library: rect('.research-library'), analyse: rect('.research-analyse-action'), categories: rect('.research-category-list'), sources: rect('.research-inspector'), map: rect('.relationship-map-canvas') };
     });
     assert.equal(await page.getByLabel('Optional project context').count(), 0);
     assert.equal(await page.getByText('Your research, connected', { exact: true }).count(), 0);
     assert.ok(positions.library.bottom <= positions.analyse.top);
     assert.ok(positions.analyse.bottom <= positions.categories.top);
-    assert.ok(positions.categories.right <= positions.sources.left + 1);
-    assert.equal(positions.categories.top, positions.sources.top);
+    assert.ok(positions.categories.right <= positions.map.left + 1);
+    assert.ok(positions.sources.top >= positions.categories.bottom);
     await page.screenshot({ path: '/private/tmp/dave-wireframe-desktop.png', fullPage: true });
     await page.setViewportSize({ width: 792, height: 924 });
     const columns = await page.evaluate(() => {
       const a = document.querySelector('.research-category-list').getBoundingClientRect();
-      const b = document.querySelector('.research-inspector').getBoundingClientRect();
-      return a.right <= b.left + 1 && a.top === b.top;
+      const b = document.querySelector('.relationship-map-canvas').getBoundingClientRect();
+      return a.right <= b.left + 1;
     });
     assert.equal(columns, true);
     await page.screenshot({ path: '/private/tmp/dave-wireframe-792.png', fullPage: true });
@@ -135,5 +135,42 @@ test('library retracts, selected folders connect to sources, and category creati
     await box.getByRole('button', { name: 'Create category' }).click();
     await page.getByRole('button', { name: 'Inspect Custom demo category' }).waitFor();
     assert.ok(await box.evaluate(el => el.getBoundingClientRect().top >= document.querySelector('.research-folder-workspace').getBoundingClientRect().bottom));
+  } finally { await context.close(); }
+});
+
+test('research map and source dialog preserve research, focus and category colours across stages', async () => {
+  const context = await browser.newContext(); const page = await context.newPage();
+  try {
+    await page.goto(server.resolvedUrls.local[0]);
+    const inspect = page.getByRole('button', { name: 'Inspect Holding and pressing', exact: true });
+    await inspect.waitFor();
+    const accent = await page.locator('.research-category-row').first().evaluate(el => getComputedStyle(el).getPropertyValue('--category-accent').trim());
+    const node = page.locator('.map-category').first();
+    assert.equal(await node.evaluate(el => getComputedStyle(el).getPropertyValue('--category-accent').trim()), accent);
+    await page.getByRole('button', { name: 'Hide panel', exact: true }).click();
+    assert.equal(await inspect.isVisible(), false);
+    await node.getByRole('button', {name:'Inspect sources',exact:true}).click();
+    await page.getByRole('button', { name: 'Open source details ↗', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Source details' });
+    await dialog.waitFor();
+    assert.equal(await dialog.locator('.research-excerpt').count(), 3);
+    const originalText = await dialog.locator('blockquote').first().textContent();
+    await page.keyboard.press('Escape');
+    assert.equal(await dialog.isVisible(), false);
+    assert.equal(await inspect.getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.locator('.research-inspector blockquote').first().textContent(), originalText);
+    await page.getByRole('button', { name: 'Open source details ↗', exact: true }).click();
+    await dialog.waitFor();
+    await page.getByRole('button', { name: 'Close source details', exact: true }).click();
+    await page.getByRole('button', { name: 'Relationships', exact: true }).click();
+    const group = page.locator('.progressive-map-workspace .map-category').first();
+    assert.equal(await group.evaluate(el => getComputedStyle(el).getPropertyValue('--category-accent').trim()), accent);
+    for (const width of [1440, 1280, 1100, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.getByRole('button', { name: 'Research', exact: true }).click();
+      assert.ok(await page.evaluate(() => document.body.scrollWidth <= innerWidth));
+      await page.getByRole('button', { name: 'Relationships', exact: true }).click();
+      assert.ok(await page.evaluate(() => document.body.scrollWidth <= innerWidth));
+    }
   } finally { await context.close(); }
 });

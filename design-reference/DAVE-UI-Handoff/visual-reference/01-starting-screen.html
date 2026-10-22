@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DAVE — Research workspace</title><link rel="stylesheet" href="style.css"></head>
+<body><link rel="stylesheet" href="stages.css"><link rel="stylesheet" href="prototype-content.css">
+<div class="app">
+<header><div class="identity"><img src="assets/dave-logo.jpeg" alt="DAVE original logo"><div class="project"><span class="eyebrow">YOUR WORKSPACE</span><h1 contenteditable="false" aria-label="Project title">Commuter backpack</h1></div></div><nav class="project-nav"><button id="projects">My projects <span>↗</span></button><button class="dark" id="new-project"><span>＋</span> New project</button></nav></header>
+<main>
+<div class="stagebar"><div class="stages"><button class="active" aria-current="step" data-stage="research"><span>01</span> Research</button><i></i><button data-stage="relations"><span>02</span> Relationships</button><i></i><button data-stage="dimensions"><span>03</span> Dimensions</button><i></i><button data-stage="exploration"><span>04</span> Exploration</button></div><span class="workspace-label">A LITTLE CLARITY STARTS HERE.</span></div>
+<div class="workspace" id="workspace">
+<section class="research-panel"><div class="panel-heading"><div><span class="eyebrow">MAKE SENSE OF YOUR MATERIAL</span><h2>Your research, organised<span class="pink">.</span></h2></div><span class="count" id="cluster-count">No material yet</span></div>
+<div id="research-content"><div class="empty-content"><span class="upload-symbol">＋</span><h3>Every project starts somewhere.</h3><p>Add your research material. DAVE will help you find a little order in the possibilities.</p><button class="dark" id="upload">＋ Add your files</button><small>Or drop your files here · Files stay in this browser demo</small></div></div>
+<footer class="panel-footer"><button id="repository"><span class="folder-icon">▱</span> Repository <span class="tiny-count" id="source-count">0</span></button><span id="analysis-status">Ready when you are</span></footer></section>
+<button id="toggle-map" class="toggle-map" aria-label="Expand map" title="Expand map">↗</button>
+<section class="map-panel"><div class="map-heading"><div><span class="eyebrow">THE BIG PICTURE</span><h2>Research map</h2></div><span class="map-indicator">↗</span></div><div class="map-canvas" id="map-canvas"><div class="empty-map"><span>⌘</span>Your map is waiting.<br>Clusters will appear here once your material has been analysed.</div></div><div class="map-footer"><span id="map-hint">Select a category to explore</span><button id="expand-map">Expand map ↗</button></div></section>
+</div>
+<section id="relations-screen" class="stage-screen" hidden=""></section>
+<section id="dimensions-screen" class="stage-screen" hidden=""></section>
+<section id="exploration-screen" class="stage-screen" hidden=""></section></main>
+<div class="preview-bar"><span><b>DAVE</b> <span class="preview-tag">DESIGN PROTOTYPE · 01</span></span><div class="preview-switch" aria-label="Preview states"><button id="show-empty" class="selected">Starting screen</button><button id="show-analysed" class="">Material analysed</button><button id="show-map">Expanded map</button></div><span class="preview-note">Design prototype · Example content</span></div>
+</div>
+<dialog id="dialog"><button class="close-dialog" aria-label="Close dialog">×</button><div id="dialog-content"></div></dialog>
+<input type="file" id="file-input" multiple="" hidden="">
+
+</body><div id="codex-browser-sidebar-comments-root" style="position: fixed; inset: 0px; pointer-events: none; z-index: 2147483647;"></div></html>
