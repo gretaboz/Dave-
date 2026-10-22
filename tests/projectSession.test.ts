@@ -174,3 +174,50 @@ test('failed deletion saves retain the pending asset removal for retry', async (
   assert.deepEqual(writes.at(-1), { sourceCount: 0, deletions: ['asset-to-remove'] });
   stop();
 });
+
+test('failed project deletion preserves the open project and successful last deletion does not autosave it again', async () => {
+  const store = createProjectStore();
+  const project = store.createProject({ name: 'Saved project', context: '' });
+  let fail = true, saves = 0;
+  const session = createProjectSession(store, {
+    loadIntoStore: async () => project,
+    saveProject: async () => { saves++; },
+    deleteProject: async () => {
+      if (fail) throw new Error('Storage denied');
+      return { project: null, projects: [] };
+    },
+  });
+  const disconnect = session.connect();
+  await settle();
+  await assert.rejects(session.deleteProject(project.id), /Storage denied/);
+  assert.deepEqual(store.getProject(), project);
+  assert.equal(session.getSnapshot().status, 'saved');
+  fail = false;
+  await session.deleteProject(project.id);
+  await settle();
+  assert.equal(store.getProject(), null);
+  assert.equal(session.getSnapshot().status, 'empty');
+  assert.equal(saves, 0);
+  disconnect();
+});
+
+test('a late edit during deletion cannot autosave and recreate the deleted project', async () => {
+  const store = createProjectStore();
+  const project = store.createProject({ name: 'Delete me', context: '' });
+  const completion = deferred<{ project: Project | null; projects: [] }>();
+  let saves = 0;
+  const session = createProjectSession(store, {
+    loadIntoStore: async () => project,
+    saveProject: async () => { saves++; },
+    deleteProject: () => completion.promise,
+  });
+  const disconnect = session.connect(); await settle();
+  const deleting = session.deleteProject(project.id);
+  store.updateProject({ context: 'Late response' });
+  assert.equal(saves, 0);
+  completion.resolve({ project: null, projects: [] });
+  await deleting; await settle();
+  assert.equal(saves, 0);
+  assert.equal(store.getProject(), null);
+  disconnect();
+});

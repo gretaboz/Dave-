@@ -95,7 +95,7 @@ export function DimensionsWorkspace({mode='live',stage='Dimensions',onExplore}:{
   const matchingBranch=matchingExplorationBranch(project);
   const matchHint=matchingBranch ? `This tuning already exists in ${branchName(project,matchingBranch)}. Change tuning to create a new branch.` : undefined;
   const allDimensions=project.dimensions.filter(d=>!d.archivedAt);
-  // Parameters created in Directions do not enter the legacy three-position UI.
+  // Legacy parameters without tuning endpoints stay saved but cannot be tuned.
   const dimensions = allDimensions.filter(d=>d.review.state!=='rejected'&&(!d.directionReview||(d.lowLabel.trim()&&d.highLabel.trim())));
   const dimension = allDimensions.find(d => d.id === editing);
   const selected = selection?.kind === 'claim' ? project.claims.find(c => c.id === selection.id) : project.relationships.find(r => r.id === selection?.id);
@@ -127,7 +127,7 @@ export function DimensionsWorkspace({mode='live',stage='Dimensions',onExplore}:{
     }catch(e){setError(e instanceof Error?e.message:'Generation failed. Your dimensions are unchanged.');}
     finally{requestBusy.current=false;setBusy(false);}
   }
-  const cards = <section aria-label="Dimensions area"><div className="dimension-area-heading"><h3>Dimensions</h3><button className="project-button" onClick={() => { setEditing('new'); setAssociated(null); }}>Add dimension</button></div>
+  const cards = <section aria-label="Dimensions area"><div className="dimension-area-heading"><h3>Dimensions</h3><button className="project-button" onClick={() => { setEditing('new'); setAssociated(null); }}>Add dimension</button><button className="project-button dimension-confirm-map" disabled={!!matchingBranch} aria-describedby={matchHint?'tuning-match-map':undefined} onClick={confirmTuning}>Confirm tuning</button></div>
     {!dimensions.length && <p className="dimension-empty">Add dimensions manually to explore design considerations. Define three meaningful approaches and connect them to your research if useful.</p>}
     {dimensions.map(d => {
       const position = project.dimensionPositions.find(p => p.dimension.id === d.id && !p.archivedAt);
@@ -152,13 +152,10 @@ export function DimensionsWorkspace({mode='live',stage='Dimensions',onExplore}:{
         <button className="research-text-button" onClick={() => { setAssociated(associated === d.id ? null : d.id); setEditing(null); setSelection(null); }}>Associated findings ({d.claims.length + d.relationships.length + (d.evidence?.length??0) + (d.researchPassages?.length??0)})</button>
       </article>;
     })}
-    <button className="project-button dimension-confirm-map" aria-label="Save tuning as a new branch" disabled={!!matchingBranch} aria-describedby={matchHint?'tuning-match-map':undefined} onClick={confirmTuning}>Confirm tuning</button>
     {matchHint&&<p id="tuning-match-map" className="relationship-map-help" role="status">{matchHint}</p>}
   </section>;
   return <section className="dimensions-workspace progressive-map-workspace" aria-label="Progressive Design Map">
     {stage==='Dimensions' && <>
-    <button className="project-button" disabled={!!matchingBranch} aria-describedby={matchHint?'tuning-match-top':undefined} onClick={confirmTuning}>Confirm tuning</button>
-    {matchHint&&<p id="tuning-match-top" className="relationship-map-help" role="status">{matchHint}</p>}
     {error && <p className="project-error" role="alert">{error}</p>}
     <p>Add design considerations, connect relevant findings, and choose a position for each.</p>
     <button className="project-button" disabled={busy || hasGeneratedDimensions(project)} onClick={()=>void generate()}>{busy?'Generating dimensions…':hasGeneratedDimensions(project)?'Dimensions generated':'Generate dimensions'}</button>
@@ -167,7 +164,6 @@ export function DimensionsWorkspace({mode='live',stage='Dimensions',onExplore}:{
     {message && <p role="status">{message}</p>}
     </>}
     {exploration.toolbar}
-    {stage==='Explore' && !exploration.session && <p>In Dimensions, select the considerations you want to explore, choose their positions, then use Confirm tuning.</p>}
     {stage!=='Dimensions' && error && <p role="alert">{error}</p>}
     <div className="relationships-layout relationships-map-layout">
       <RelationshipsMap key={project.id} readOnly={stage!=='Relationships'} stage={stage} onViewChange={onViewChange} focusRequest={focusRequest} exploration={exploration.hasContent || stage==='Explore' ? {content:exploration.content,bounds:exploration.bounds,focus:exploration.focus} : undefined} project={project} selection={selection} onSelect={s => { setSelection(s); setEditing(null); setAssociated(null); }}
@@ -207,7 +203,7 @@ export function DimensionsWorkspace({mode='live',stage='Dimensions',onExplore}:{
           }))}
         </section>}
         {selected && !editing && <RelationshipInspector key={selected.id} project={project} item={selected} onClose={() => setSelection(null)} onError={setError} />}
-        {!editing && !inspected && !selected && <p>{stage==='Explore'?'Add an idea or select one to edit, connect, or branch. Open a confirmed Dimension to inspect its findings.':stage==='Relationships'?'Select a claim or relationship to inspect its supporting research.':'Pan right to Dimensions. Add a dimension or select a finding to inspect its research.'}</p>}
+        {stage !== 'Relationships' && !editing && !inspected && !selected && <p>{stage==='Explore'?'Add an idea or select one to edit, connect, or branch. Open a confirmed Dimension to inspect its findings.':'Pan right to Dimensions. Add a dimension or select a finding to inspect its research.'}</p>}
       </aside>
     </div>
   </section>;

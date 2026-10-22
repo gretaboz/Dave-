@@ -38,7 +38,7 @@ test('confirmation, one map, edits, branching, arrows, deletion, camera continui
  const map=page.locator('.relationship-map-canvas');
  await map.evaluate(el=>{el.dataset.sameCanvas='yes';});
  await page.getByRole('button',{name:'Confirm tuning',exact:true}).click();
- await page.getByRole('button',{name:'Explore',exact:true}).getAttribute('aria-current').then(v=>assert.equal(v,'step'));await save();
+ await page.getByRole('button',{name:'Exploration',exact:true}).getAttribute('aria-current').then(v=>assert.equal(v,'step'));await save();
  assert.equal(await page.locator('.relationship-map-canvas').count(),1);assert.equal(await page.locator('.exploration-canvas').count(),0);assert.equal(await map.getAttribute('data-same-canvas'),'yes');
  const world=page.locator('.relationship-map-world');assert.equal(await world.locator('.map-category').count(),1);assert.equal(await world.locator('[data-map-id]').count(),2);assert.equal(await world.locator('[data-dimension-id]').count(),1);assert.equal(await world.getByRole('region',{name:'Exploration area'}).count(),1);
  const initial=await snapshot();let confirmed=initial.exploration.sessions[0];assert.equal(confirmed.tuningSnapshot[0].positionLabel,'Optional');assert.equal(confirmed.tuningSnapshot[0].value,.5);assert.deepEqual(initial.dimensions,original.dimensions);assert.deepEqual(initial.dimensionPositions,original.dimensionPositions);
@@ -46,12 +46,15 @@ test('confirmation, one map, edits, branching, arrows, deletion, camera continui
  await page.getByRole('complementary',{name:'Dimension and research inspector'}).getByText('Associated findings',{exact:true}).waitFor();await page.getByRole('button',{name:'Show exploration',exact:true}).click();
  const editor=page.locator('.exploration-editor');
  const fill=async(title,text)=>{await editor.getByLabel('Idea title',{exact:true}).fill(title);await editor.getByLabel('Idea text',{exact:true}).fill(text);await editor.getByRole('button',{name:'Save idea',exact:true}).click();await save();};
- await page.getByRole('button',{name:'Add idea',exact:true}).click();await fill('First idea','A starting thought');
- await page.getByRole('button',{name:'Edit idea',exact:true}).click();await fill('First idea edited','A revised thought');
- let p=await snapshot();assert.equal(p.explorationNodes[0].history.length,1);assert.equal(p.explorationNodes[0].explorationSession.id,confirmed.id);
- await page.getByRole('button',{name:'Branch idea',exact:true}).click();await fill('Second idea','Another route');
+ await page.getByRole('button',{name:'Add text',exact:true}).click();await fill('First idea','A starting thought');
+ await page.getByRole('button',{name:'Edit First idea',exact:true}).click();await fill('First idea edited','A revised thought');
+ await page.getByRole('textbox',{name:'Text for First idea edited',exact:true}).fill('Edited directly on the card');
+ await page.getByRole('textbox',{name:'Text for First idea edited',exact:true}).press('Tab');await save();
+ let p=await snapshot();assert.equal(p.explorationNodes[0].content.text,'Edited directly on the card');assert.equal(p.explorationNodes[0].history.length,2);assert.equal(p.explorationNodes[0].explorationSession.id,confirmed.id);
+ await page.getByRole('button',{name:'Add text',exact:true}).click();await fill('Second idea','Another route');
  p=await snapshot();assert.equal(p.explorationConnections.length,1);assert.equal(p.explorationConnections[0].fromNodeId,p.explorationNodes[0].id);assert.ok(p.explorationNodes[1].position.x>p.explorationNodes[0].position.x+240);
- await page.getByRole('button',{name:'Add idea',exact:true}).click();await fill('Third idea','A separate thought');
+ await page.getByLabel('Active branch',{exact:true}).selectOption(confirmed.id);
+ await page.getByRole('button',{name:'Add text',exact:true}).click();await fill('Third idea','A separate thought');
  await page.getByRole('button',{name:'Connect ideas',exact:true}).click();await page.getByRole('button',{name:'Second idea',exact:true}).click();assert.equal((await snapshot()).explorationConnections.length,2);
  await page.getByRole('button',{name:'Third idea',exact:true}).click();await page.getByRole('button',{name:'Connect ideas',exact:true}).click();await page.getByRole('button',{name:'Second idea',exact:true}).click();assert.equal((await snapshot()).explorationConnections.length,2);
  await page.getByRole('button',{name:'Zoom out',exact:true}).click();
@@ -67,11 +70,11 @@ test('confirmation, one map, edits, branching, arrows, deletion, camera continui
  await stage('Research');await stage('Relationships');assert.equal(await map.getAttribute('data-same-canvas'),'yes');await stage('Dimensions');
  await page.getByRole('button',{name:'Show dimensions',exact:true}).click();await page.getByRole('button',{name:'+1: Guided',exact:true}).click();await save();
  assert.deepEqual((await snapshot()).exploration.sessions[0],confirmed);
- await stage('Explore');assert.equal(await world.getAttribute('style'),camera);await world.getByText('Current sliders have changed.',{exact:false}).waitFor();
- await page.getByRole('button',{name:'Add idea',exact:true}).click();await fill('Fourth idea','Still uses confirmed context');
+ await stage('Exploration');assert.equal(await world.getAttribute('style'),camera);await world.getByText('Current sliders have changed.',{exact:false}).waitFor();
+ await page.getByRole('button',{name:'Add text',exact:true}).click();await fill('Fourth idea','Still uses confirmed context');
  p=await snapshot();assert.equal(p.explorationNodes.at(-1).dimensionPositions[0].revision,1);assert.deepEqual(p.exploration.sessions[0],confirmed);
  await stage('Dimensions');await page.getByRole('button',{name:'Confirm tuning',exact:true}).click();await save();p=await snapshot();assert.equal(p.exploration.sessions.length,2);assert.equal(p.exploration.sessions[1].tuningSnapshot[0].positionLabel,'Guided');assert.deepEqual(p.exploration.sessions[0],confirmed);
- const stable=await snapshot();await page.reload();await stage('Explore');await page.locator('.exploration-card').first().waitFor();p=await snapshot();assert.deepEqual(p.explorationNodes,stable.explorationNodes);assert.deepEqual(p.explorationConnections,stable.explorationConnections);assert.deepEqual(p.exploration,stable.exploration);
+ const stable=await snapshot();await page.reload();await stage('Exploration');await page.locator('.exploration-card').first().waitFor();p=await snapshot();assert.deepEqual(p.explorationNodes,stable.explorationNodes);assert.deepEqual(p.explorationConnections,stable.explorationConnections);assert.deepEqual(p.exploration,stable.exploration);
  await page.getByRole('button',{name:'Show exploration',exact:true}).click();await page.screenshot({path:'/private/tmp/dave-integrated-exploration.png',fullPage:true});
 }));
 
@@ -83,16 +86,16 @@ test('legacy ideas and projects without new fields remain intact; invalid confir
   const p=s.getProject().dimensionPositions[0];s.setDimensionPosition({...p,value:null});return n;
  });
  await stage('Dimensions');await page.getByRole('button',{name:'Confirm tuning',exact:true}).click();await page.getByRole('alert').filter({hasText:'Choose a position'}).waitFor();assert.equal((await snapshot()).dimensionPositions[0].value,null);
- await stage('Explore');await page.getByRole('button',{name:'Earlier idea',exact:true}).waitFor();assert.deepEqual((await snapshot()).explorationNodes[0],old);await save();
- await page.reload();await stage('Explore');assert.deepEqual((await snapshot()).explorationNodes[0],old);assert.deepEqual((await snapshot()).dimensions,original.dimensions);
+ await stage('Exploration');await page.getByRole('button',{name:'Earlier idea',exact:true}).waitFor();assert.deepEqual((await snapshot()).explorationNodes[0],old);await save();
+ await page.reload();await stage('Exploration');assert.deepEqual((await snapshot()).explorationNodes[0],old);assert.deepEqual((await snapshot()).dimensions,original.dimensions);
 }));
 
 test('Confirm tuning uses edited labels directly and preserves the chosen values',async()=>setup(async({page,snapshot,save,stage})=>{
  await seed(page);await page.evaluate(async()=>{const s=(await import('/src/state/projectStore.ts')).projectStore;s.dimensions.update(s.getProject().dimensions[0].id,{midLabel:'Optional support'});});
  assert.equal((await snapshot()).exploration,undefined);
  await stage('Dimensions');await page.getByRole('button',{name:'Confirm tuning',exact:true}).click();
- await page.getByRole('button',{name:'Start exploring',exact:true}).waitFor();await save();
+ await page.getByRole('button',{name:'Dave asks',exact:true}).waitFor();await save();
  const p=await snapshot();assert.equal(p.dimensionPositions[0].value,.5);assert.equal(p.exploration.sessions[0].tuningSnapshot[0].positionLabel,'Optional support');
  assert.equal(await page.getByRole('region',{name:'Review settings before exploration'}).count(),0);
- assert.equal(await page.getByRole('button',{name:'Explore',exact:true}).getAttribute('aria-current'),'step');
+ assert.equal(await page.getByRole('button',{name:'Exploration',exact:true}).getAttribute('aria-current'),'step');
 }));

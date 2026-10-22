@@ -99,7 +99,7 @@ export function createLocalPersistence(options: PersistenceOptions = {}) {
   async function loadProject(id?: EntityId<'project'>): Promise<Project | null> {
     const saved: unknown = await transaction([PROJECTS], 'readonly', tx =>
       tx.objectStore(PROJECTS).get(id ?? CURRENT));
-    if (saved === undefined) return null;
+    if (saved === undefined || saved === null) return null;
     assertProjectSnapshot(saved);
     return saved; // IndexedDB returns a structured clone, preserving the full model.
   }
@@ -107,10 +107,50 @@ export function createLocalPersistence(options: PersistenceOptions = {}) {
   return {
     saveProject,
     loadProject,
+    async hasSavedSelection(): Promise<boolean> {
+      return (await transaction([PROJECTS], 'readonly', tx => tx.objectStore(PROJECTS).get(CURRENT))) !== undefined;
+    },
+    async deleteProject(id: EntityId<'project'>): Promise<{ project: Project | null; projects: { id: EntityId<'project'>; name: string }[] }> {
+      let result: { project: Project | null; projects: { id: EntityId<'project'>; name: string }[] };
+      await transaction([PROJECTS, FILES], 'readwrite', tx => {
+        const projects = tx.objectStore(PROJECTS);
+        const request = projects.getAll();
+        const current = projects.get(CURRENT);
+        current.onsuccess = () => {
+          try {
+            const snapshots = request.result.filter(value => value !== null) as Project[];
+            snapshots.forEach(assertProjectSnapshot);
+            const removed = snapshots.filter(project => project.id === id);
+            if (!removed.length) throw new Error('This project could not be found.');
+            const remaining = new Map(snapshots.filter(project => project.id !== id).map(project => [project.id, project]));
+            const next = current.result?.id === id ? [...remaining.values()][0] ?? null : current.result ?? null;
+            projects.delete(id);
+            // Null records an intentionally empty library, so Demo does not seed it again.
+            projects.put(next, CURRENT);
+            const assets = (values: unknown[]): Set<string> => {
+              const ids = new Set<string>();
+              const visit = (value: unknown) => {
+                if (!value || typeof value !== 'object') return;
+                const item = value as Record<string, unknown>;
+                if (typeof item.id === 'string' && typeof item.filename === 'string' && typeof item.mediaType === 'string') ids.add(item.id);
+                Object.values(item).forEach(visit);
+              };
+              values.forEach(visit); return ids;
+            };
+            const retainedAssets = assets([...remaining.values()]);
+            for (const asset of assets(removed)) if (!retainedAssets.has(asset)) tx.objectStore(FILES).delete(asset);
+            result = { project: next, projects: [...remaining.values()].map(project => ({ id: project.id, name: project.name })) };
+          } catch { tx.abort(); }
+        };
+        return request;
+      });
+      return result!;
+    },
     async listProjects(): Promise<{ id: EntityId<'project'>; name: string }[]> {
       const saved: unknown[] = await transaction([PROJECTS], 'readonly', tx => tx.objectStore(PROJECTS).getAll());
       const projects = new Map<EntityId<'project'>, { id: EntityId<'project'>; name: string }>();
       for (const value of saved) {
+        if (value === null) continue;
         assertProjectSnapshot(value);
         projects.set(value.id, { id: value.id, name: value.name });
       }

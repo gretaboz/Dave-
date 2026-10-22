@@ -175,11 +175,6 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
       {error && <p role="alert" className="project-error">{error}</p>}
       {uploadStatus && <p role="status">{uploadStatus}</p>}
       {analysisStatus && <p role="status" className="research-feedback">{analysisStatus}</p>}
-      <label className="research-context">Optional project context
-        <textarea key={project.id} defaultValue={project.context} rows={2} maxLength={4000} disabled={busy || analysing}
-          placeholder="A few sentences about your project…"
-          onBlur={event => change(() => { store.updateProject({ context: event.target.value }); })} />
-      </label>
       <section className="research-files research-library" aria-label="Uploaded files">
         <div className="research-library-heading"><h4>Research Library</h4>{modeControl}</div>
         <div className="research-upload-area">
@@ -210,7 +205,6 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
       <div className="research-layout">
         <section className="research-category-list" aria-label="Research categories">
           <h4>Categories</h4>
-          <p className="research-category-empty">DAVE proposes categories after you upload files and click Analyse research.</p>
           <div className="research-category-options">
             {visibleCategories.map(category => {
               const count = new Set(category.passages?.map(p => p.source.id) ?? sources.filter(s => s.primaryCategoryId === category.id).map(s => s.id)).size;
@@ -245,10 +239,9 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
             {selected.processingState !== 'ready' && <button className="research-text-button" disabled={busy || analysing} onClick={() => { void original(selected, true); }}>Retry text extraction</button>}
             {selected.preparedContent?.limitations.length ? <details><summary>Extraction limitations</summary><ul>{selected.preparedContent.limitations.map((item, index) => <li key={index}>{item}</li>)}</ul></details> : null}
             {selected.summary && <p>{selected.summary}</p>}
-          </> : <div className="research-inspector-empty"><h4>Your research, connected</h4><p>Select a category to see its summary and the passages behind it.</p></div>}
+          </> : null}
           {excerpts.size > 0 && <div className="research-supporting-excerpts">
             <h5>Supporting research</h5>
-            <p className="research-excerpt-note">{selectedCategory ? `Research excerpts linked to ${selectedCategory.name}.` : 'Original wording from your sources.'} Previews show only part of longer excerpts.</p>
             {[...excerpts.entries()].filter(([, excerpt]) => !selectedCategory || excerpt.categoryIds.includes(selectedCategory.id)).map(([key, { passage, categoryIds, categoryNames }]) => {
               const source = project.sources.find(source => source.id === passage.source.id);
               const content = source?.revision === passage.source.revision ? source
@@ -267,7 +260,6 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
       </div>
       <section className="research-add-category" aria-label="Add your own category">
         <h4>Add your own category</h4>
-          <p className="research-manual-note">You can also add your own category if needed.</p>
           <form className="research-inline-form research-create-category" onSubmit={createCategory}>
             <label className="research-field">New category<input value={newName} onChange={event => setNewName(event.target.value)} required /></label>
             <button className="project-button" disabled={!newName.trim() || busy}>Create category</button>

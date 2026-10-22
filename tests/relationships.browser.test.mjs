@@ -1,12 +1,15 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
 import {createServer} from 'vite';
-test('grounded proposals, edits and original evidence persist; failed retry preserves work',async()=>{
+test('grounded proposals, edits and original evidence persist; unchanged research prevents repeated analysis',async()=>{
  const {chromium}=await import(process.env.DAVE_PLAYWRIGHT_MODULE ?? 'playwright');
  const server=await createServer({server:{host:'127.0.0.1',port:5197,strictPort:false}}); await server.listen();
  const browser=await chromium.launch({headless:true,executablePath:process.env.DAVE_BROWSER_EXECUTABLE});
  try {
- const page=await browser.newPage(); await page.goto(server.resolvedUrls.local[0]);
+ const page=await browser.newPage();
+ let analysisRequests=0;
+ page.on('request',request=>{if(new URL(request.url()).pathname==='/api/relationships/analyse')analysisRequests++;});
+ await page.goto(server.resolvedUrls.local[0]);
  await page.getByRole('button',{name:'Live AI',exact:true}).click();
  await page.getByLabel('Project name',{exact:true}).fill('Synthetic relationship test'); await page.getByRole('button',{name:'Create project',exact:true}).click();
  await page.evaluate(async()=>{
@@ -59,12 +62,15 @@ test('grounded proposals, edits and original evidence persist; failed retry pres
  await page.getByLabel('Claim wording').fill('Cleanup can affect repeated use.'); await page.getByRole('button',{name:'Save wording'}).click(); assert.equal(await page.getByRole('button',{name:'Accept',exact:true}).count(),0);
  await page.getByText('Saved locally.',{exact:true}).waitFor(); await page.reload(); await page.getByRole('button',{name:'Relationships',exact:true}).click();
  await page.getByRole('button',{name:'Cleanup can affect repeated use. unresolved',exact:true}).waitFor();
- await page.route('**/api/relationships/analyse',route=>route.fulfill({status:404,contentType:'application/json',body:JSON.stringify({error:'Not found.'})}));
- await page.getByRole('button',{name:'Analyse relationships',exact:true}).click();
- await page.getByRole('alert').filter({hasText:'running DAVE AI server does not have the Relationships endpoint'}).waitFor();
- await page.getByRole('button',{name:'Cleanup can affect repeated use. unresolved',exact:true}).waitFor();
- await page.route('**/api/relationships/analyse',route=>route.fulfill({status:502,contentType:'application/json',body:JSON.stringify({error:'Synthetic API failure'})}));
- await page.getByRole('button',{name:'Analyse relationships',exact:true}).click(); await page.getByRole('alert').filter({hasText:'Synthetic API failure'}).waitFor();
+ const analysed=page.getByRole('button',{name:'Research analysed',exact:true});
+ assert.equal(await analysed.isDisabled(),true);
+ assert.equal(await page.getByRole('button',{name:'Analyse relationships',exact:true}).count(),0);
+ assert.equal(analysisRequests,1);
+ const beforeRepeat=await page.evaluate(async()=>(await import('/src/state/projectStore.ts')).projectStore.getProject());
+ // Native button activation must remain inert when the research is already analysed.
+ await analysed.evaluate(button=>button.click());
+ assert.equal(analysisRequests,1);
+ assert.deepEqual(await page.evaluate(async()=>(await import('/src/state/projectStore.ts')).projectStore.getProject()),beforeRepeat);
  const project=await page.evaluate(async()=>(await import('/src/state/projectStore.ts')).projectStore.getProject()); assert.equal(project.claims.length,2); assert.deepEqual(project.claims[0].mapPosition,reorganisedPosition); assert.equal(project.claims[0].history[0].content.statement,'Cleanup may discourage use.'); assert.equal(project.relationships[0].claims[0].claim.revision,1);
 
  await page.evaluate(async()=>{

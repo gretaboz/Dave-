@@ -41,7 +41,12 @@ test('demo is isolated, editable, persistent and never calls the AI endpoint', a
     assert.equal(original.sources.length, 0);
     await page.getByRole('button', { name: 'Demo', exact: true }).click();
     await page.getByRole('button', { name: 'Inspect Demo grip' }).click();
-    await page.getByRole('button', { name: 'Reject category' }).click();
+    page.once('dialog', async dialog => {
+      assert.equal(dialog.type(), 'confirm');
+      assert.match(dialog.message(), /Delete “Demo grip”/);
+      await dialog.accept();
+    });
+    await page.getByRole('button', { name: 'Delete category Demo grip', exact: true }).click();
     await page.getByRole('status').filter({ hasText: 'Saved locally.' }).waitFor();
     await page.reload();
     await page.getByRole('button', { name: 'Inspect Pulp and cleaning' }).waitFor();
@@ -92,9 +97,10 @@ test('wireframe layout places library before analysis and keeps connected column
     await library.locator('.research-library-files > summary').click();
     const positions = await page.evaluate(() => {
       const rect = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right }; };
-      return { context: rect('.research-context'), library: rect('.research-library'), analyse: rect('.research-analyse-action'), categories: rect('.research-category-list'), sources: rect('.research-inspector') };
+      return { library: rect('.research-library'), analyse: rect('.research-analyse-action'), categories: rect('.research-category-list'), sources: rect('.research-inspector') };
     });
-    assert.ok(positions.context.bottom <= positions.library.top);
+    assert.equal(await page.getByLabel('Optional project context').count(), 0);
+    assert.equal(await page.getByText('Your research, connected', { exact: true }).count(), 0);
     assert.ok(positions.library.bottom <= positions.analyse.top);
     assert.ok(positions.analyse.bottom <= positions.categories.top);
     assert.ok(positions.categories.right <= positions.sources.left + 1);
@@ -122,7 +128,7 @@ test('library retracts, selected folders connect to sources, and category creati
     await page.locator('.research-library-files > summary').click();
     assert.equal(await page.getByRole('button', { name: 'Delete Synthetic kitchen interviews.txt' }).isVisible(), false);
     await page.getByRole('button', { name: 'Inspect Holding and pressing' }).click();
-    assert.equal(await page.getByRole('button', { name: 'Inspect Holding and pressing' }).evaluate(el => getComputedStyle(el, '::after').content), '""');
+    assert.equal(await page.getByRole('button', { name: 'Inspect Holding and pressing' }).evaluate(el => getComputedStyle(el, '::after').content), 'none');
     assert.equal(await page.locator('.research-category-list').getByLabel('New category', { exact: true }).count(), 0);
     const box = page.getByRole('region', { name: 'Add your own category' });
     await box.getByLabel('New category', { exact: true }).fill('Custom demo category');

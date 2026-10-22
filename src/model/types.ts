@@ -79,7 +79,8 @@ export interface Project extends Entity<'project', ProjectContent>, ProjectConte
   dimensionPositions: DimensionPosition[];
   explorationNodes: ExplorationNode[];
   explorationConnections: ExplorationConnection[];
-  directions: Direction[];
+  /** Legacy records are retained verbatim for saved-project compatibility; no active feature. */
+  directions: (Entity<'direction', Record<string, unknown>> & Record<string, unknown>)[];
 }
 
 export interface SourceContent {
@@ -212,27 +213,8 @@ export interface DimensionContent {
   relationships: EntityReference<'relationship'>[];
   limitations: Limitations;
   review: Review;
-  /** Designer-owned convergence state. AI generation must leave this proposed. */
-  directionReview?: DirectionParameterReview;
-}
-
-export type DirectionParameterReviewState = 'proposed' | 'included' | 'excluded' | 'deferred';
-export type DirectionParameterVariability = 'fixed' | 'adjustable';
-
-export interface DirectionParameterReview {
-  state: DirectionParameterReviewState;
-  variability?: DirectionParameterVariability;
-  orientation: {
-    status: 'undecided' | 'designer_set';
-    /** Free text by design: a direction is not limited to three preset positions. */
-    text?: string;
-    rationale?: string;
-  };
-  /** Why the parameter belongs in the decision space. */
-  relevanceEvidence: EntityReference<'evidence'>[];
-  /** Evidence, if any, for the designer's chosen orientation. Kept separate from relevance. */
-  orientationEvidence: EntityReference<'evidence'>[];
-  challenges: string[];
+  /** Opaque legacy review retained with saved dimensions and revision history. */
+  directionReview?: unknown;
 }
 
 export interface Dimension extends Entity<'dimension', DimensionContent>, DimensionContent {}
@@ -313,7 +295,7 @@ export interface ExplorationConnectionContent {
 export interface ExplorationConnection
   extends Entity<'exploration_connection', ExplorationConnectionContent>, ExplorationConnectionContent {}
 
-/** Values and endpoint meanings frozen when a designer creates a direction. */
+/** Values and endpoint meanings frozen for an exploration tuning snapshot. */
 export interface TuningSnapshot {
   dimension: EntityReference<'dimension'>;
   position: EntityReference<'dimension_position'>;
@@ -323,40 +305,4 @@ export interface TuningSnapshot {
   selected: boolean;
   value: number | null;
   reasoning?: string;
-}
-
-export interface DirectionContent {
-  title: string;
-  description: string;
-  reasoning: string;
-  openQuestions: string[];
-  state: 'draft' | 'retained' | 'archived';
-  explorationNodes: EntityReference<'exploration_node'>[];
-  references: ResearchReferences;
-  tuningSnapshot: TuningSnapshot[];
-  limitations: Limitations;
-  /** Present on the new designer-confirmed Directions vertical slice. */
-  parameterSnapshot?: DirectionParameterSnapshot[];
-  confirmedAt?: Timestamp;
-  parentDirection?: EntityReference<'direction'>;
-}
-
-export interface DirectionParameterSnapshot {
-  dimension: EntityReference<'dimension'>;
-  name: string;
-  description: string;
-  origin: Origin;
-  reviewState: Exclude<DirectionParameterReviewState, 'proposed'>;
-  variability?: DirectionParameterVariability;
-  orientation: DirectionParameterReview['orientation'];
-  relevanceEvidence: EntityReference<'evidence'>[];
-  orientationEvidence: EntityReference<'evidence'>[];
-  researchPassages: {category: EntityReference<'research_category'>; passage: ResearchPassage}[];
-  challenges: string[];
-  limitations: Limitations;
-}
-
-/** Creation is explicitly chosen by a designer; no automatic promotion implied. */
-export interface Direction extends Entity<'direction', DirectionContent>, DirectionContent {
-  designatedBy: 'researcher';
 }

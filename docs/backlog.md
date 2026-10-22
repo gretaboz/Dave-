@@ -1,3 +1,5 @@
+> Historical document: the Directions proposal below is retired and is not an active workflow or implementation target. DAVE now uses Research → Relationships → Dimensions → Exploration.
+
 # Directions MVP Backlog
 
 Status values: `todo`, `in progress`, `blocked`, `done`. Every item should gain an owner, branch/PR, and evidence of its acceptance tests before it is marked done.

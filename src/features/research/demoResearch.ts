@@ -34,7 +34,7 @@ export function createDemoSession(databaseName = 'dave-synthetic-demo') {
   return createProjectSession(store, { ...persistence,
     async loadIntoStore(target) {
       const existing = await persistence.loadIntoStore(target);
-      if (existing) return existing;
+      if (existing || await persistence.hasSavedSelection()) return existing;
       const seed = createProjectStore();
       seed.createProject({ name: 'Citrus press redesign · Synthetic demo', context: 'A fictional project exploring how a household uses, cleans, and stores a manual citrus press. All research is synthetic.' });
       const time = new Date().toISOString();
