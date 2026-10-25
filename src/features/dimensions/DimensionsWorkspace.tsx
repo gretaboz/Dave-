@@ -130,8 +130,8 @@ export function DimensionsWorkspace({mode='live',stage='Dimensions',onExplore}:{
     }catch(e){setError(e instanceof Error?e.message:'Generation failed. Your dimensions are unchanged.');}
     finally{requestBusy.current=false;setBusy(false);}
   }
-  const cards = <section className="dimension-controls" aria-label="Dimensions area"><div className="dimension-area-heading"><h3>Dimensions</h3><button className="project-button" onClick={() => { setEditing('new'); setAssociated(null); }}>Add dimension</button><button className="project-button dimension-confirm-map" disabled={!!matchingBranch} aria-describedby={matchHint?'tuning-match-map':undefined} onClick={confirmTuning}>Confirm tuning</button></div><div className="dimension-card-list">
-    {!dimensions.length && <div className="dimension-empty-state"><span hidden={stage!=='Dimensions'} aria-hidden="true">↔</span><h3 hidden={stage!=='Dimensions'}>From findings to considerations.</h3><p className="dimension-empty">Add dimensions manually to explore design considerations. Define three meaningful approaches and connect them to your research if useful.</p></div>}
+  const cards = <section className="dimension-controls" aria-label="Dimensions area"><div className="dimension-area-heading"><h3>Dimensions</h3><button className="project-button" onClick={() => { revealPanel(); setEditing('new'); setAssociated(null); }}>Add dimension</button><button className="project-button dimension-confirm-map" disabled={!!matchingBranch} aria-describedby={matchHint?'tuning-match-map':undefined} onClick={confirmTuning}>Confirm tuning</button></div><div className="dimension-card-list">
+    {!dimensions.length && <div className="dimension-empty-state"><span hidden={stage!=='Dimensions' && stage!=='Explore'} aria-hidden="true">↔</span><h3 hidden={stage!=='Dimensions' && stage!=='Explore'}>From findings to considerations.</h3><p className="dimension-empty">Add dimensions manually to explore design considerations. Define three meaningful approaches and connect them to your research if useful.</p></div>}
     {dimensions.map(d => {
       const position = project.dimensionPositions.find(p => p.dimension.id === d.id && !p.archivedAt);
       // Older continuous or undecided values stay untouched until the designer selects a new position.
@@ -139,7 +139,7 @@ export function DimensionsWorkspace({mode='live',stage='Dimensions',onExplore}:{
       return <article className="dimension-card" key={d.id} data-dimension-id={d.id} data-selected={associated === d.id} tabIndex={0} aria-label={`Dimension: ${d.name}`}
         onClick={event=>{if(!(event.target as HTMLElement).closest('button,input,textarea,summary,a')){setAssociated(d.id);setEditing(null);setSelection(null);}}}
         onKeyDown={event=>{if(event.target===event.currentTarget&&(event.key==='Enter'||event.key===' ')){event.preventDefault();setAssociated(d.id);setEditing(null);setSelection(null);}}}>
-        <div className="dimension-area-heading"><h4>{d.name}</h4><button className="research-text-button" aria-label={`Edit ${d.name}`} onClick={() => { setEditing(d.id); setAssociated(null); }}>Edit</button></div>
+        <div className="dimension-area-heading"><h4>{d.name}</h4><button className="research-text-button" aria-label={`Edit ${d.name}`} onClick={() => { revealPanel(); setEditing(d.id); setAssociated(null); }}>Edit</button></div>
         <p className="dimension-explanation">{d.explanation}</p>
         {d.origin==='researcher'&&<small className="dimension-origin">Created by you</small>}
         {d.origin!=='researcher'&&<small className="dimension-origin">{d.grounding==='research_grounded'&&(d.evidence?.length||d.researchPassages?.length)?'Research-supported':'AI inference · Evidence not verified'}</small>}
@@ -154,7 +154,7 @@ export function DimensionsWorkspace({mode='live',stage='Dimensions',onExplore}:{
         <strong className="dimension-selected-label" aria-live="polite">{index < 0 ? 'Earlier position retained' : d[labels[index]] || 'Add a middle approach in Edit'}</strong>
         {index >= 0 && d[explanations[index]] && <details><summary>About this position</summary><p>{d[explanations[index]]}</p></details>}
         {index < 0 && <p>Your earlier tuning value is preserved. Select a position when ready.</p>}
-        <button className="research-text-button" onClick={() => { setAssociated(associated === d.id ? null : d.id); setEditing(null); setSelection(null); }}>Associated findings ({d.claims.length + d.relationships.length + (d.evidence?.length??0) + (d.researchPassages?.length??0)})</button>
+        <button className="research-text-button" onClick={() => { revealPanel(); setAssociated(associated === d.id ? null : d.id); setEditing(null); setSelection(null); }}>Associated findings ({d.claims.length + d.relationships.length + (d.evidence?.length??0) + (d.researchPassages?.length??0)})</button>
       </article>;
     })}
     {matchHint&&<p id="tuning-match-map" className="relationship-map-help" role="status">{matchHint}</p>}
@@ -191,8 +191,7 @@ export function DimensionsWorkspace({mode='live',stage='Dimensions',onExplore}:{
         {stage !== 'Relationships' && !editing && !inspected && !selected && <div className="workspace-inspector-guide"><span className="stage-eyebrow">{stage==='Explore'?'Your exploration':'Supporting research'}</span><h3>{stage==='Explore'?'Follow a new possibility.':'Stay close to your research.'}</h3><p>{stage==='Explore'?'Add an idea or select one to edit, connect, or branch. Open a confirmed Dimension to inspect its findings.':'Select a dimension or a finding to inspect its research.'}</p></div>}
       </aside>;
   const inPanel = (content: import('react').ReactNode) => stageHost ? createPortal(content, stageHost) : content;
-  return <section className="dimensions-workspace progressive-map-workspace" data-workspace-stage={stage} aria-label="Progressive Design Map">
-    {stage==='Dimensions' && inPanel(<div className="dimension-stage-panel">
+  const dimensionsIntroduction = <div className="dimension-stage-panel">
     <div className="dimension-stage-heading"><span className="stage-eyebrow">Design considerations</span><h2>Tune your <br />dimensions<span>.</span></h2></div>
     {error && <p className="project-error" role="alert">{error}</p>}
     <p>Add design considerations, connect relevant findings, and choose a position for each.</p>
@@ -200,15 +199,16 @@ export function DimensionsWorkspace({mode='live',stage='Dimensions',onExplore}:{
     {hasGeneratedDimensions(project) && <p className="relationship-map-help">Your generated set is saved. You can edit or remove dimensions as you work.</p>}
     <p className="relationship-map-help">Dimensions use source excerpts and interpretations. Tune them immediately, or edit and remove them as you work.</p>
     {message && <p role="status">{message}</p>}
-    {cards}
-    </div>)}
+    </div>;
+  const mapTuning = <div className="dimension-stage-panel">{cards}</div>;
+  return <section className="dimensions-workspace progressive-map-workspace" data-workspace-stage={stage} aria-label="Progressive Design Map">
+    {stage==='Dimensions' && inPanel(dimensionsIntroduction)}
     {stage==='Explore' && inPanel(<div className="exploration-stage-heading"><span className="stage-eyebrow">Make room for possibilities</span><h2>Exploration<span>.</span></h2></div>)}
-    {inPanel(exploration.toolbar)}
     {stage!=='Dimensions' && showDimensionControls && inPanel(<section className="on-demand-dimension-controls"><button className="research-text-button" onClick={closeDimensions}>Close dimension tuning</button>{cards}</section>)}
     {stage!=='Dimensions' && error && inPanel(<p role="alert">{error}</p>)}
     <div className="relationships-layout relationships-map-layout">
-      <RelationshipsMap key={project.id} readOnly={stage!=='Relationships'} stage={stage} onViewChange={onViewChange} focusRequest={focusRequest} exploration={exploration.hasContent || stage==='Explore' ? {content:exploration.content,bounds:exploration.bounds,focus:exploration.focus} : undefined} project={project} selection={selection} onSelect={s => { if(s) revealPanel(); setSelection(s); setEditing(null); setAssociated(null); }}
-        onMove={(node,mapPosition)=>attempt(()=>{if(node.kind==='claim')store.claims.update(node.id as Claim['id'],{mapPosition});else store.relationships.update(node.id as Relationship['id'],{mapPosition});})} onReorganise={positions=>attempt(()=>store.setClaimMapPositions([...positions].map(([id,position])=>({id:id as Claim['id'],position}))))} extension={{ content: <section className="dimension-map-references" aria-label="Dimension references"><h3>Dimensions</h3>{dimensions.map(d => <button className="dimension-map-reference" key={d.id} data-dimension-id={d.id} aria-pressed={associated===d.id} onClick={() => { revealPanel(); setAssociated(d.id); setEditing(null); setSelection(null); }}>{d.name}<small>Inspect associated findings ↗</small></button>)}</section>, height: 200 + dimensions.length * 400, selectedDimensionId:associated, associations: dimensions.flatMap(d=>[
+      <RelationshipsMap secondaryToolbar={exploration.toolbar} key={project.id} readOnly={stage!=='Relationships'} stage={stage} onViewChange={onViewChange} focusRequest={focusRequest} exploration={exploration.hasContent || stage==='Explore' ? {content:exploration.content,bounds:exploration.bounds,focus:exploration.focus} : undefined} project={project} selection={selection} onSelect={s => { if(s) revealPanel(); setSelection(s); setEditing(null); setAssociated(null); }}
+        onMove={(node,mapPosition)=>attempt(()=>{if(node.kind==='claim')store.claims.update(node.id as Claim['id'],{mapPosition});else store.relationships.update(node.id as Relationship['id'],{mapPosition});})} onReorganise={positions=>attempt(()=>store.setClaimMapPositions([...positions].map(([id,position])=>({id:id as Claim['id'],position}))))} extension={{ content: mapTuning, height: 200 + dimensions.length * 400, selectedDimensionId:associated, associations: dimensions.flatMap(d=>[
           ...d.claims.map(r=>({kind:'claim' as const,id:r.id,dimensionId:d.id})),
           ...d.relationships.map(r=>({kind:'relationship' as const,id:r.id,dimensionId:d.id})),
           ...[...new Set([

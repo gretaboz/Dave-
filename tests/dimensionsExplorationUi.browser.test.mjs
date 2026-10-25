@@ -3,7 +3,7 @@ import { strict as assert } from 'node:assert';
 import { createServer } from 'vite';
 import { questionOutput } from './fixtures/exploration.mjs';
 
-test('tuning panel, visible choice meanings and Exploration card types remain usable across viewport sizes', async () => {
+test('map tuning, visible choice meanings and Exploration card types remain usable across viewport sizes', async () => {
   const { chromium } = await import(process.env.DAVE_PLAYWRIGHT_MODULE ?? 'playwright');
   const server = await createServer({ server: { host: '127.0.0.1', port: 5222, strictPort: false } });
   await server.listen();
@@ -26,11 +26,13 @@ test('tuning panel, visible choice meanings and Exploration card types remain us
     });
     const stage = name => page.getByRole('navigation').getByRole('button', { name, exact: true }).click();
     await stage('Dimensions');
-    assert.equal(await page.locator('.dimension-stage-panel .dimension-card').count(), 1);
-    assert.equal(await page.locator('.map-dimensions-area .dimension-card').count(), 0);
-    assert.equal(await page.locator('.dimension-map-reference').count(), 1);
+    const mapDimensions = page.locator('.map-dimensions-area');
+    assert.equal(await mapDimensions.locator('.dimension-card').count(), 1);
+    assert.equal(await mapDimensions.getByRole('heading', { name: 'Amount of guidance during a first visit', exact: true }).count(), 1);
+    assert.equal(await page.locator('#stage-side-panel .dimension-card').count(), 0);
+    await page.getByRole('button', { name: 'Show dimensions', exact: true }).click();
     const confirmBox = await page.getByRole('button', { name: 'Confirm tuning', exact: true }).boundingBox();
-    const panelBox = await page.locator('.dimension-stage-panel').boundingBox();
+    const panelBox = await mapDimensions.locator('.dimension-stage-panel').boundingBox();
     assert.ok(confirmBox.y + confirmBox.height <= panelBox.y + panelBox.height);
     const current = page.getByRole('button', { name: '0: Optional support', exact: true });
     assert.equal(await current.getAttribute('aria-pressed'), 'true');
