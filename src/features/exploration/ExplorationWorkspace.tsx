@@ -173,7 +173,7 @@ export function useExploration({ project, store, active, onInspectDimension, onF
       <button disabled={!selectedNode} onClick={() => attempt(() => { if (selected) store.explorationNodes.remove(selected); setSelected(null); setEditing(null); setConnecting(false); })}>Delete idea</button>
       <button disabled={!selectedConnection} onClick={() => attempt(() => { if (connection) store.explorationConnections.remove(connection); setConnection(null); })}>Delete connection</button>
     </div>
-    <p className="exploration-help" role="status">{connecting ? 'Select another idea to draw an arrow from the selected idea.' : 'Drag an idea to move it. Select an arrow to delete its connection. Arrows express your connections, not causality.'}</p>
+    {connecting && <p className="exploration-help" role="status">Select another idea to connect it.</p>}
     {earlierSession && <details><summary>This idea uses an earlier confirmed context</summary>{earlierSession.tuningSnapshot.map(s => <p key={s.position.id}>{s.dimensionName}: {s.positionLabel}</p>)}</details>}
     {selectedNode && !selectedNode.explorationSession && <p className="exploration-help">This idea was saved before exploration confirmation was available. Its original references are kept.</p>}
     {error && <p role="alert">{error}</p>}{retry&&!busy&&<button className="research-text-button" onClick={()=>void generate(retry.id,retry.mode,retry.branchId)}>Retry question</button>}

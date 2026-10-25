@@ -3,7 +3,6 @@
 .continuous-workspace { display: grid; grid-template-columns: 340px minmax(0, 1fr); grid-template-rows: 38px minmax(0, 1fr); gap: 12px 18px; height: calc(100dvh - 260px); min-height: 560px; }
 .workspace-panel-controls { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; }
 .workspace-panel-controls button { font-size: 11px; padding: 7px 12px; }
-.workspace-panel-controls > span { margin-left: auto; font-size: 11px; color: var(--color-text-muted); }
 .stage-side-panel { grid-column: 1; grid-row: 2; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--color-border); border-radius: 18px; padding: 20px; scrollbar-width: thin; }
 .persistent-map-area { grid-column: 2; grid-row: 2; min-width: 0; min-height: 0; }
 .continuous-workspace[data-panel-side='right'] { grid-template-columns: minmax(0, 1fr) 340px; }
@@ -15,7 +14,8 @@
 .persistent-map-area .relationship-map-toolbar { flex: 0 0 80px; margin: 0; gap: 8px; align-content: flex-start; overflow: auto; }
 .persistent-map-area .relationship-map-toolbar > div { display: flex; flex-wrap: wrap; gap: 4px; }
 .persistent-map-area .relationship-map-toolbar button { border-radius: 30px; font-size: 11px; padding: 6px 9px; }
-.persistent-map-area .relationship-map-help { margin: 3px 0; font-size: 10px; line-height: 1.5; }
+.workspace-map-help { margin-top: 10px; }
+.workspace-map-help .relationship-map-help { margin: 3px 0; font-size: 10px; line-height: 1.5; }
 .persistent-map-area .relationship-map-canvas { height: 0; min-height: 260px; flex: 1; background: var(--cream); background-image: radial-gradient(#14141422 .7px, transparent .7px); background-size: 18px 18px; border-radius: 18px; }
 .persistent-map-area .map-category { background: var(--cream); border: 1px solid var(--color-border); border-top: 3px solid var(--category-accent); border-radius: 15px; }
 .persistent-map-area .map-category h3 { font: 600 15px/1.4 'DM Sans Variable', 'DM Sans', sans-serif; letter-spacing: -.2px; }
@@ -72,13 +72,11 @@
   .continuous-workspace, .continuous-workspace[data-panel-side='right'] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 600px; }
   .stage-side-panel { padding: 10px; }
   .workspace-panel-controls { flex-wrap: wrap; }
-  .workspace-panel-controls > span { display: none; }
   .stage-side-panel .dimension-tuning { flex-wrap: wrap; }
   .stage-side-panel .dimension-tuning button { flex-basis: 100%; }
   .persistent-map-area .relationship-map-toolbar { flex-basis: 120px; }
   .continuous-workspace[data-panel-collapsed='true'] { grid-template-columns: minmax(0, 1fr); }
 }
-.persistent-map-area .relationship-map-help { flex: 0 0 30px; height: 30px; overflow: auto; }
 .persistent-map-area .dimensions-workspace { align-items: stretch; }
 .stage-side-panel .on-demand-dimension-controls { border-top: 1px solid var(--color-border); padding-top: 16px; margin-top: 20px; }
 .stage-side-panel .research-layout, .stage-side-panel .research-folder-workspace, .stage-side-panel .research-inspector { min-width: 0; width: 100%; }
@@ -86,3 +84,67 @@
 .stage-side-panel .research-category-option > span { min-width: 0; overflow-wrap: anywhere; }
 .workspace-inspector-host:has(> div[hidden]) { display: none; }
 .stage-side-panel[hidden] { display: none !important; }
+
+/* Map controls float above the canvas without reducing its dimensions. */
+.persistent-map-area .design-map-title { flex: 0 0 auto; margin-bottom: 8px; }
+.map-toolbox-stack > .relationship-map-toolbar { position: relative; width: fit-content; max-width: 100%; box-sizing: border-box; display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: center; gap: 6px 12px; padding: 10px; border-radius: 14px; background: #fff4e8; color: var(--ink); border: 1px solid var(--color-border); box-shadow: 0 3px 12px #14141410; cursor: default; }
+.persistent-map-area .map-toolbox-stack > .relationship-map-toolbar { margin: 0; overflow: visible; }
+.map-toolbox-stack > .relationship-map-toolbar > div { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.map-toolbox-stack > .relationship-map-toolbar button { background: transparent; color: var(--ink); border: 1px solid var(--color-border); border-radius: 20px; font-size: 11px; padding: 6px 9px; }
+.map-toolbox-stack > .relationship-map-toolbar button:hover:not(:disabled) { background: #14141408; }
+.map-toolbox-stack > .relationship-map-toolbar button:disabled { opacity: .35; cursor: default; }
+.map-toolbox-stack > .relationship-map-toolbar span { font-size: 11px; min-width: 34px; text-align: center; }
+
+.map-dimensions-area .dimension-stage-panel { height: auto; min-height: 0; padding: 0; border: 0; }
+.map-dimensions-area .dimension-controls, .map-dimensions-area .dimension-card-list { overflow: visible; height: auto; flex: auto; }
+.map-dimensions-area .dimension-stage-heading h2 { font-size: 25px; }
+.map-dimensions-area .dimension-controls > .dimension-area-heading { order: 2; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--color-border); display: flex; flex-wrap: wrap; gap: 8px; }
+.map-dimensions-area .dimension-confirm-map { flex-basis: 100%; }
+
+.map-dimensions-area .dimension-stage-panel > .project-button { order: 0; margin: 12px 0; }
+
+.workspace-dimensions .workspace-inspector-host:has(.shared-item-inspector[data-inspector-open='true']) { order: 0; }
+
+.map-toolbox-stack { position: absolute; z-index: 5; top: 14px; left: 14px; width: max-content; max-width: calc(100% - 28px); display: flex; flex-direction: column; align-items: flex-start; gap: 8px; cursor: default; }
+.map-exploration-toolbox { width: fit-content; max-width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid var(--color-border); border-radius: 14px; background: #fffaf3; box-shadow: 0 3px 12px #14141410; }
+.map-exploration-toolbox .exploration-tools { margin: 0; padding: 0; border: 0; }
+.map-exploration-toolbox .exploration-active-branch { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 8px; margin: 0 0 10px; font-size: 11px; }
+.map-exploration-toolbox .exploration-active-branch select { max-width: 100%; border: 1px solid var(--color-border); background: var(--cream); color: var(--ink); border-radius: 9px; padding: 5px 8px; font: inherit; }
+.map-exploration-toolbox .exploration-toolbar { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; }
+.map-exploration-toolbox .exploration-toolbar button, .map-exploration-toolbox .research-text-button { padding: 7px 10px; border: 1px solid var(--color-border); border-radius: 20px; background: transparent; color: var(--ink); font: inherit; font-size: 11px; }
+.map-exploration-toolbox .exploration-toolbar button:first-child { background: var(--pink); border-color: var(--pink); color: var(--ink); }
+.map-exploration-toolbox button:disabled { opacity: .4; cursor: default; }
+.map-exploration-toolbox .exploration-help { margin: 8px 0 0; max-width: 520px; font-size: 10px; line-height: 1.5; color: var(--color-text-muted); }
+.map-exploration-toolbox p, .map-exploration-toolbox details { font-size: 11px; }
+
+/* A retractable exploration palette on the map's right edge. */
+.relationship-map-canvas > .map-exploration-toolbox { position: absolute; z-index: 6; top: 110px; right: 14px; width: 190px; max-width: calc(100% - 28px); max-height: calc(100% - 124px); overflow: auto; background: rgb(255 250 243 / 50%); }
+.map-exploration-toolbox[data-collapsed='true'] { width: auto; }
+.map-exploration-toolbox .exploration-toolbox-toggle { display: flex; align-items: center; gap: 8px; width: 100%; padding: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+.map-exploration-toolbox .exploration-toolbox-toggle span { font-size: 20px; line-height: 1; }
+.map-exploration-toolbox .exploration-tools { margin-top: 14px; }
+.map-exploration-toolbox .exploration-toolbar { flex-direction: column; align-items: stretch; }
+.map-exploration-toolbox .exploration-toolbar button { width: 100%; text-align: left; }
+.map-exploration-toolbox .exploration-active-branch { flex-direction: column; align-items: stretch; }
+.map-exploration-toolbox [hidden] { display: none; }
+
+.relationship-map-canvas > .map-exploration-toolbox { width: 132px; padding: 10px; }
+.map-exploration-toolbox[data-collapsed='true'] { width: auto; }
+.map-exploration-toolbox .exploration-toolbar { display: flex; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 8px; }
+.map-exploration-toolbox .exploration-toolbar button { box-sizing: border-box; min-width: 0; width: 100%; min-height: 44px; padding: 9px 12px; border-radius: 12px; white-space: normal; overflow-wrap: anywhere; text-align: center; line-height: 1.4; }
+.map-exploration-toolbox .exploration-active-branch { min-width: 0; gap: 6px; margin-bottom: 12px; }
+.map-exploration-toolbox .exploration-active-branch label { line-height: 1.4; }
+.map-exploration-toolbox .exploration-active-branch select { box-sizing: border-box; width: 100%; min-width: 0; font-size: 11px; }
+.map-exploration-toolbox .exploration-toolbox-toggle { font-size: 11px; gap: 5px; }
+
+/* Keep the tuning card in place as exploration begins. */
+.workspace-exploration .map-dimensions-area .dimension-controls { display: flex; flex-direction: column; }
+.workspace-exploration .map-dimensions-area .dimension-confirm-map { margin: 0; padding: 13px 16px; border-radius: 30px; background: var(--ink); color: var(--cream); font-size: 12px; }
+.workspace-exploration .map-dimensions-area .dimension-confirm-map:disabled { background: var(--color-selected); color: var(--color-text-muted); border-color: var(--color-border); }
+
+.map-dimensions-area .dimension-controls > .dimension-area-heading h3 { font-size: 13px; font-weight: 500; margin: 0; }
+.map-dimensions-area .dimension-controls > .dimension-area-heading > .project-button:not(.dimension-confirm-map) { margin-left: auto; font-size: 11px; padding: 8px 12px; }
+.map-dimensions-area .dimension-card .dimension-area-heading { align-items: flex-start; gap: 8px; }
+.map-dimensions-area .dimension-card .dimension-area-heading h4 { min-width: 0; flex: 1; }
+.map-dimensions-area .dimension-card .dimension-area-heading .research-text-button { flex-shrink: 0; white-space: nowrap; }
+.map-dimensions-area .dimension-card .research-text-button { font-size: 10px; padding: 3px 0; }
