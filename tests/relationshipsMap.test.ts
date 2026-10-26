@@ -93,6 +93,29 @@ test('layered connections use the actual claim edge and relationship input port'
  assert.match(route.path,/^M 325 250 C /);
 });
 
+test('tall relationship text keeps rectangles separate and lines attached to their edges',()=>{
+ const s=createProjectStore();s.createProject({name:'Variable relationship heights',context:''});
+ const source=s.sources.add({title:'Notes',originalFile:{id:'file' as any,filename:'notes',mediaType:'text/plain'},processingState:'ready',limitations:[]});
+ const e=s.evidence.add({source:{id:source.id,revision:1},text:'Synthetic evidence',form:'quotation',location:'P1',context:'',limitations:[]});
+ const claims=['First claim','Second claim'].map(statement=>s.claims.add({statement,evidence:[{id:e.id,revision:1}],context:'',limitations:[],review:{state:'proposed'}}));
+ const relations=[0,1].map(i=>s.relationships.add({type:'connection',description:'Long relationship '+i,claims:claims.map(c=>({claim:{id:c.id,revision:1}})),explanation:'Synthetic explanation',limitations:[],review:{state:'proposed'}}));
+ const project=s.getProject()!,before=JSON.stringify(project);
+ const map=deriveMap(project,{relationshipHeights:new Map([[relations[0].id,260],[relations[1].id,180]])});
+ const ordered=[...map.relationshipPositions.entries()].sort((a,b)=>a[1].y-b[1].y);
+ assert.ok(ordered[1][1].y>=ordered[0][1].y+map.relationshipHeights.get(ordered[0][0])!+24);
+ for(const [id,position] of ordered) {
+   const height=map.relationshipHeights.get(id)!;
+   for(const port of [0,1]) {
+     const claimPosition=map.positions.get(claims[port].id)!;
+     const route=layeredRelationshipRoute(claimPosition,map.heights.get(claims[port].id)!,position,port,height);
+     assert.equal(route.to.x,position.x);
+     assert.ok(route.to.y>position.y&&route.to.y<position.y+height);
+     assert.equal(route.from.y,claimPosition.y+map.heights.get(claims[port].id)!/2);
+   }
+ }
+ assert.equal(JSON.stringify(project),before);
+});
+
 test('layered regions stack and incremental additions retain existing research',()=>{
  const s=createProjectStore();s.createProject({name:'Incremental',context:''});
  const source=s.sources.add({title:'Notes',originalFile:{id:'file' as any,filename:'notes',mediaType:'text/plain'},processingState:'ready',limitations:[]});
