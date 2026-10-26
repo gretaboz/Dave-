@@ -10,6 +10,7 @@ const daveLogo = new URL('../../design-reference/DAVE-UI-Handoff/visual-referenc
 const stages = ['Research', 'Relationships', 'Dimensions', 'Exploration'] as const;
 
 export function App() {
+  const [panelReset, setPanelReset] = useState(0);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [researchMode, setResearchMode] = useState(initialResearchMode);
   const [activeStage, setActiveStage] = useState<(typeof stages)[number]>('Research');
@@ -30,7 +31,7 @@ export function App() {
                 type="button"
                 className="workflow-button"
                 aria-current={activeStage === stage ? 'step' : undefined}
-                onClick={() => { setLibraryOpen(false); setActiveStage(stage); }}
+                onClick={() => { setLibraryOpen(false); setActiveStage(stage); setPanelReset(value => value + 1); }}
               >
                 <span className="workflow-number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
                 {stage}
@@ -41,9 +42,9 @@ export function App() {
       </nav>
       <main className={`workspace${activeStage === 'Research' ? ' workspace-research' : activeStage === 'Relationships' ? ' workspace-relationships' : activeStage === 'Dimensions' ? ' workspace-dimensions' : ' workspace-exploration'}`} aria-label="Design workspace">
         <div hidden={libraryOpen}>
-          <WorkspaceLayout stage={activeStage} panel={<>
-            <div hidden={activeStage !== 'Research'}><ResearchModes mode={researchMode} onModeChange={setResearchMode} /></div>
-            <div hidden={activeStage !== 'Relationships'}><RelationshipsWorkspace mode={researchMode} controlsOnly /></div>
+          <WorkspaceLayout stage={activeStage} panelReset={panelReset} panel={panelStage => <>
+            <div hidden={panelStage !== 'Research'}><ResearchModes mode={researchMode} onModeChange={setResearchMode} /></div>
+            <div hidden={panelStage !== 'Relationships'}><RelationshipsWorkspace mode={researchMode} controlsOnly /></div>
           </>}>
             <DimensionsWorkspace mode={researchMode} stage={activeStage === 'Exploration' ? 'Explore' : activeStage} onExplore={() => setActiveStage('Exploration')} />
           </WorkspaceLayout>

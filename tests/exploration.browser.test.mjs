@@ -42,6 +42,21 @@ test('confirmation, one map, edits, branching, arrows, deletion, camera continui
  assert.equal(await page.locator('.relationship-map-canvas').count(),1);assert.equal(await page.locator('.exploration-canvas').count(),0);assert.equal(await map.getAttribute('data-same-canvas'),'yes');
  const world=page.locator('.relationship-map-world');assert.equal(await world.locator('.map-category').count(),1);assert.equal(await world.locator('[data-map-id]').count(),2);assert.equal(await world.locator('[data-dimension-id]').count(),1);assert.equal(await world.getByRole('region',{name:'Exploration area'}).count(),1);
  const initial=await snapshot();let confirmed=initial.exploration.sessions[0];assert.equal(confirmed.tuningSnapshot[0].positionLabel,'Optional');assert.equal(confirmed.tuningSnapshot[0].value,.5);assert.deepEqual(initial.dimensions,original.dimensions);assert.deepEqual(initial.dimensionPositions,original.dimensionPositions);
+
+ // Branch cards move in map coordinates at the current zoom without changing tuning.
+ await page.getByRole('button',{name:'Show exploration',exact:true}).click();
+ const branchCard=world.locator('[data-exploration-branch]').first();
+ const branchBox=await branchCard.boundingBox();
+ const branchScale=await world.evaluate(el=>Number(getComputedStyle(el).transform.match(/matrix\(([^,]+)/)[1]));
+ const branchLink=world.locator('[data-dimensions-branch]').first();const oldPath=await branchLink.getAttribute('d');
+ await page.mouse.move(branchBox.x+40,branchBox.y+branchBox.height-12);
+ await page.mouse.down();await page.mouse.move(branchBox.x+120,branchBox.y+branchBox.height+38,{steps:6});await page.mouse.up();await save();
+ const positioned=(await snapshot()).exploration.sessions[0];
+ assert.ok(Math.abs(positioned.position.x-confirmed.position.x-80/branchScale)<2);
+ assert.ok(Math.abs(positioned.position.y-confirmed.position.y-50/branchScale)<2);
+ assert.deepEqual(positioned.tuningSnapshot,confirmed.tuningSnapshot);
+ assert.notEqual(await branchLink.getAttribute('d'),oldPath);
+ confirmed=positioned;
  await world.getByRole('button',{name:'Expand Branch 1',exact:true}).click();confirmed=(await snapshot()).exploration.sessions[0];await world.getByRole('button',{name:'Guidance',exact:true}).click();
  await page.getByRole('complementary',{name:'Dimension and research inspector'}).getByText('Associated findings',{exact:true}).waitFor();await page.getByRole('button',{name:'Show exploration',exact:true}).click();
  const editor=page.locator('.exploration-editor');
@@ -53,6 +68,27 @@ test('confirmation, one map, edits, branching, arrows, deletion, camera continui
  let p=await snapshot();assert.equal(p.explorationNodes[0].content.text,'Edited directly on the card');assert.equal(p.explorationNodes[0].history.length,2);assert.equal(p.explorationNodes[0].explorationSession.id,confirmed.id);
  await page.getByRole('button',{name:'Add text',exact:true}).click();await fill('Second idea','Another route');
  p=await snapshot();assert.equal(p.explorationConnections.length,1);assert.equal(p.explorationConnections[0].fromNodeId,p.explorationNodes[0].id);assert.ok(p.explorationNodes[1].position.x>p.explorationNodes[0].position.x+240);
+ // Returning to earlier phases hides later layers without changing project content.
+ const beforePhases=await snapshot();
+ const explorationEdges=await world.locator('.exploration-arrows path').count();
+ for(const [name,claims,dimensions] of [['Research',0,0],['Relationships',2,0],['Dimensions',2,1]]) {
+  await stage(name);
+  assert.equal(await world.locator('.map-category').count(),1);
+  assert.equal(await world.locator('.map-claim').count(),claims);
+  assert.equal(await world.locator('.map-relationship-node').count(),claims?1:0);
+  assert.equal(await world.locator('.map-edge').count(),claims?2:0);
+  assert.equal(await world.locator('[data-dimension-id]').count(),dimensions);
+  assert.equal(await world.locator('.dimension-map-association').count()>0,!!dimensions);
+  assert.equal(await world.locator('.exploration-card, [data-exploration-branch], .exploration-arrows').count(),0);
+  assert.equal(await page.getByRole('button',{name:'Show exploration',exact:true}).isDisabled(),true);
+  assert.equal(await page.locator('.map-exploration-toolbox').count(),0);
+ }
+ await stage('Exploration');
+ assert.equal(await world.locator('.exploration-card').count(),2);
+ assert.equal(await world.locator('.exploration-arrows path').count(),explorationEdges);
+ const afterPhases=await snapshot();
+ for(const field of ['categories','evidence','claims','relationships','dimensions','dimensionPositions','exploration','explorationNodes','explorationConnections'])assert.deepEqual(afterPhases[field],beforePhases[field]);
+
  await page.getByLabel('Active branch',{exact:true}).selectOption(confirmed.id);
  await page.getByRole('button',{name:'Add text',exact:true}).click();await fill('Third idea','A separate thought');
  await page.getByRole('button',{name:'Connect ideas',exact:true}).click();await page.getByRole('button',{name:'Second idea',exact:true}).click();assert.equal((await snapshot()).explorationConnections.length,2);
@@ -74,7 +110,7 @@ test('confirmation, one map, edits, branching, arrows, deletion, camera continui
  await stage('Exploration');assert.equal(await world.getAttribute('style'),sharedCamera);await world.getByText('Current sliders have changed.',{exact:false}).waitFor();
  await page.getByRole('button',{name:'Add text',exact:true}).click();await fill('Fourth idea','Still uses confirmed context');
  p=await snapshot();assert.equal(p.explorationNodes.at(-1).dimensionPositions[0].revision,1);assert.deepEqual(p.exploration.sessions[0],confirmed);
- await stage('Dimensions');await page.getByRole('button',{name:'Confirm tuning',exact:true}).click();await save();p=await snapshot();assert.equal(p.exploration.sessions.length,2);assert.equal(p.exploration.sessions[1].tuningSnapshot[0].positionLabel,'Guided');assert.deepEqual(p.exploration.sessions[0],confirmed);
+ await stage('Dimensions');await page.getByRole('button',{name:'Show dimensions',exact:true}).click();await page.getByRole('button',{name:'Confirm tuning',exact:true}).click();await save();p=await snapshot();assert.equal(p.exploration.sessions.length,2);assert.equal(p.exploration.sessions[1].tuningSnapshot[0].positionLabel,'Guided');assert.deepEqual(p.exploration.sessions[0],confirmed);
  const stable=await snapshot();await page.reload();await stage('Exploration');await page.locator('.exploration-card').first().waitFor();p=await snapshot();assert.deepEqual(p.explorationNodes,stable.explorationNodes);assert.deepEqual(p.explorationConnections,stable.explorationConnections);assert.deepEqual(p.exploration,stable.exploration);
  await page.getByRole('button',{name:'Show exploration',exact:true}).click();await page.screenshot({path:'/private/tmp/dave-integrated-exploration.png',fullPage:true});
 }));

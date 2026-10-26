@@ -19,6 +19,8 @@ export function RelationshipsMap({project,selection,onSelect,onMove,onReorganise
   extension?:{content:ReactNode;height:number;selectedDimensionId?:string|null;associations?:{kind:'claim'|'relationship'|'category';id:string;dimensionId:string}[]};
 }) {
   const { helpHost, inspectCategory } = useWorkspaceLayout();
+  const showExploration = stage === 'Explore';
+  const showRelationships = stage !== 'Research';
   const showDimensions = stage === 'Dimensions' || stage === 'Explore';
   const associationMarkerId = useId().replaceAll(':', '');
   const [explorationToolsCollapsed,setExplorationToolsCollapsed]=useState(false);
@@ -112,9 +114,9 @@ export function RelationshipsMap({project,selection,onSelect,onMove,onReorganise
     changeView(v=>{const s=Math.max(.2,Math.min(2,scale));return {scale:s,x:a.x-(a.x-v.x)*s/v.scale,y:a.y-(a.y-v.y)*s/v.scale};});
   }
   function fit() {
-    const pts=[...(exploration ? [{x:exploration.bounds.x+exploration.bounds.width-CARD_WIDTH,y:exploration.bounds.y+exploration.bounds.height-CARD_HEIGHT}] : []),...(showDimensions && extension ? [{x:1000,y:40+(dimensionHeight.current || extension.height)}] : []),...map.positions.values(),...relationshipPositions.values(),...map.regions.map(r=>({x:r.x+r.width-CARD_WIDTH,y:r.y+r.height-CARD_HEIGHT}))];
+    const pts=[...(showExploration && exploration ? [{x:exploration.bounds.x+exploration.bounds.width-CARD_WIDTH,y:exploration.bounds.y+exploration.bounds.height-CARD_HEIGHT}] : []),...(showDimensions && extension ? [{x:1000,y:40+(dimensionHeight.current || extension.height)}] : []),...(showRelationships ? [...map.positions.values(),...relationshipPositions.values()] : []),...map.regions.map(r=>({x:r.x+r.width-CARD_WIDTH,y:r.y+r.height-CARD_HEIGHT}))];
     const minX=Math.min(0,...pts.map(p=>p.x)),minY=Math.min(0,...pts.map(p=>p.y));
-    const maxX=Math.max(900,...pts.map(p=>p.x+CARD_WIDTH)),maxY=Math.max(500,...pts.map(p=>p.y+CARD_HEIGHT),...[...map.positions.entries()].map(([id,p])=>p.y+(map.heights.get(id) ?? CARD_HEIGHT)));
+    const maxX=Math.max(900,...pts.map(p=>p.x+CARD_WIDTH)),maxY=Math.max(500,...pts.map(p=>p.y+CARD_HEIGHT),...(showRelationships ? [...map.positions.entries()].map(([id,p])=>p.y+(map.heights.get(id) ?? CARD_HEIGHT)) : []));
     const top=mapTop();
     const scale=Math.max(.01,Math.min(1,((host.current?.clientWidth ?? 900)-60)/(maxX-minX),Math.max(1,(host.current?.clientHeight ?? 650)-top-30)/(maxY-minY)));
     changeView({x:30-minX*scale,y:top-minY*scale,scale});
@@ -133,23 +135,23 @@ export function RelationshipsMap({project,selection,onSelect,onMove,onReorganise
     <div><button disabled={!map.regions.length} onClick={()=>focusArea(map.regions)}>Show research</button>
     <button disabled={stage==='Research' || (!map.claims.length && !visibleRelationships.length)} onClick={()=>focusArea([...map.positions.values(),...relationshipPositions.values()])}>Show relationships</button>
     <button disabled={!showDimensions || !extension || !project.dimensions.some(d=>!d.archivedAt && d.review.state!=='rejected')} onClick={()=>focusArea([{x:1000,y:40}])}>Show dimensions</button>
-    <button disabled={stage==='Research' || !exploration} onClick={()=>{if(exploration)focusArea([exploration.focus??exploration.bounds]);}}>Show exploration</button></div>
+    <button disabled={!showExploration || !exploration} onClick={()=>{if(exploration)focusArea([exploration.focus??exploration.bounds]);}}>Show exploration</button></div>
     {!readOnly && <div><button onClick={()=>{onReorganise(deriveMap(project,{ignoreManual:true}).positions);setExpandedClaimId(null);changeView({x:20,y:mapTop(),scale:.85});}}>Reorganise map</button></div>}
   </div>;
   return <div className="relationship-map-shell"><span className="design-map-title">Design Map</span>
-  {earlier.length>0&&<details className="map-earlier-relationships"><summary>{earlier.length} earlier relationships need classification</summary><p>Their original wording and reviews are kept. Inspect each before choosing a type.</p>{earlier.map(r=><button className="research-text-button" key={r.id} onClick={()=>onSelect({kind:'relationship',id:r.id})}>{r.description} · {label(r.review.state)}</button>)}</details>}
+  {showRelationships && earlier.length>0&&<details className="map-earlier-relationships"><summary>{earlier.length} earlier relationships need classification</summary><p>Their original wording and reviews are kept. Inspect each before choosing a type.</p>{earlier.map(r=><button className="research-text-button" key={r.id} onClick={()=>onSelect({kind:'relationship',id:r.id})}>{r.description} · {label(r.review.state)}</button>)}</details>}
   <div ref={host} className="relationship-map-canvas" aria-label={extension ? 'Design Map' : 'Research relationship map'} onPointerDown={e=>start(e,null)} onPointerMove={move} onPointerUp={()=>finish()} onPointerCancel={()=>finish(true)} onWheel={e=>{const rect=e.currentTarget.getBoundingClientRect();zoom(view.scale*(e.deltaY<0?1.1:1/1.1),{x:e.clientX-rect.left,y:e.clientY-rect.top});}}>
   <div className="map-toolbox-stack" ref={toolbarRef} onPointerDown={e=>e.stopPropagation()} onWheel={e=>e.stopPropagation()}>
     {toolbar}
   </div>
-  {secondaryToolbar && <aside className="map-exploration-toolbox" data-collapsed={explorationToolsCollapsed} aria-label="Exploration tools" onPointerDown={e=>e.stopPropagation()} onWheel={e=>e.stopPropagation()}>
+  {showExploration && secondaryToolbar && <aside className="map-exploration-toolbox" data-collapsed={explorationToolsCollapsed} aria-label="Exploration tools" onPointerDown={e=>e.stopPropagation()} onWheel={e=>e.stopPropagation()}>
     <button className="exploration-toolbox-toggle" type="button" aria-expanded={!explorationToolsCollapsed} onClick={()=>setExplorationToolsCollapsed(value=>!value)} aria-label={explorationToolsCollapsed?'Expand exploration tools':'Collapse exploration tools'}><span>{explorationToolsCollapsed?'‹':'›'}</span> Exploration</button>
     <div hidden={explorationToolsCollapsed}>{secondaryToolbar}</div>
   </aside>}
   <div className="relationship-map-world" style={{transform:`translate(${view.x}px,${view.y}px) scale(${view.scale})`}}>
     {showDimensions && extension && <div className="map-dimensions-area" ref={dimensionArea} style={{left:1000,top:40}} onPointerDown={e=>e.stopPropagation()}>{extension.content}</div>}
-    {stage!=='Research' && exploration?.content(view.scale)}
-    {map.regions.map((r,i)=><section key={r.id} className={`map-category map-category-${r.id==='unassigned'?'neutral':i%4}`} style={{...categoryStyle(project,r.id),left:r.x,top:r.y,width:r.width,height:r.height}} aria-label={`Category: ${r.name}`}><h3>{r.name}</h3>{stage==='Research' && <div className="map-category-research"><p>{project.categories.find(c=>c.id===r.id)?.description || 'Research organised in this category.'}</p><button type="button" className="project-button" onPointerDown={e=>e.stopPropagation()} onClick={()=>inspectCategory(r.id)}>Inspect sources</button></div>}{stage!=='Research' && !r.members.length && <p>No grounded claims in this category yet.</p>}</section>)}
+    {showExploration && exploration?.content(view.scale)}
+    {map.regions.map((r,i)=><section key={r.id} className={`map-category map-category-${r.id==='unassigned'?'neutral':i%4}`} style={{...categoryStyle(project,r.id),left:r.x,top:r.y,width:r.width,height:r.height}} aria-label={`Category: ${r.name}`}><h3><button className="map-category-inspect" onPointerDown={e=>e.stopPropagation()} onClick={()=>inspectCategory(r.id)}>{r.name}</button></h3>{stage==='Research' && <div className="map-category-research"><p>{project.categories.find(c=>c.id===r.id)?.description || 'Research organised in this category.'}</p><button type="button" className="project-button" onPointerDown={e=>e.stopPropagation()} onClick={()=>inspectCategory(r.id)}>Inspect sources</button></div>}{stage!=='Research' && !r.members.length && <p>No grounded claims in this category yet.</p>}</section>)}
     
     {showDimensions && extension?.associations && <svg className="map-edges" width="1" height="1" overflow="visible"><defs><marker id={associationMarkerId} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="context-stroke" strokeWidth="1.5" /></marker></defs>{extension.associations.map(a=>{
       const current=a.kind==='claim'?map.positions.get(a.id):a.kind==='relationship'?relationshipPositions.get(a.id):undefined;
