@@ -128,10 +128,10 @@
 .map-exploration-toolbox .exploration-active-branch { flex-direction: column; align-items: stretch; }
 .map-exploration-toolbox [hidden] { display: none; }
 
-.relationship-map-canvas > .map-exploration-toolbox { width: 132px; padding: 10px; }
+.relationship-map-canvas > .map-exploration-toolbox { width: 92px; padding: 6px; }
 .map-exploration-toolbox[data-collapsed='true'] { width: auto; }
 .map-exploration-toolbox .exploration-toolbar { display: flex; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 8px; }
-.map-exploration-toolbox .exploration-toolbar button { box-sizing: border-box; min-width: 0; width: 100%; min-height: 44px; padding: 9px 12px; border-radius: 12px; white-space: normal; overflow-wrap: anywhere; text-align: center; line-height: 1.4; }
+.map-exploration-toolbox .exploration-toolbar button { box-sizing: border-box; min-width: 0; width: 100%; min-height: 44px; padding: 8px 4px; border-radius: 12px; white-space: normal; overflow-wrap: anywhere; text-align: center; line-height: 1.4; }
 .map-exploration-toolbox .exploration-active-branch { min-width: 0; gap: 6px; margin-bottom: 12px; }
 .map-exploration-toolbox .exploration-active-branch label { line-height: 1.4; }
 .map-exploration-toolbox .exploration-active-branch select { box-sizing: border-box; width: 100%; min-width: 0; font-size: 11px; }
@@ -148,3 +148,7 @@
 .map-dimensions-area .dimension-card .dimension-area-heading h4 { min-width: 0; flex: 1; }
 .map-dimensions-area .dimension-card .dimension-area-heading .research-text-button { flex-shrink: 0; white-space: nowrap; }
 .map-dimensions-area .dimension-card .research-text-button { font-size: 10px; padding: 3px 0; }
+
+/* Research headings remain inspectable from every map phase. */
+.map-category-inspect { pointer-events: auto; border: 0; padding: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.map-category-inspect:hover { text-decoration: underline; }

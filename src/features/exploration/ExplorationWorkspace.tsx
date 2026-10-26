@@ -14,12 +14,13 @@ import './exploration.css';
 type Point = { x: number; y: number };
 
 /** Board tools and entities rendered inside RelationshipsMap's existing world. No canvas or viewport of its own. */
-export function useExploration({ project, store, active, onInspectDimension, onFocusCard, onExplore, onPanelRequest, mode='live' }: {
+export function useExploration({ project, store, active, onInspectDimension, onFocusCard, onPanelRequest, mode='live' }: {
   project: Project | null; store: ReturnType<typeof createProjectStore>; active: boolean;
   onFocusCard: (point:Point) => void; onExplore?:()=>void; onPanelRequest?:()=>void;
   onInspectDimension: (id: Dimension['id']) => void; mode?:'demo'|'live';
 }) {
   const persistence=useProjectSession();
+  const [movingBranch,setMovingBranch]=useState<{id:ExplorationSession['id'];position:Point}|null>(null);
   const [busy,setBusy]=useState(false);
   const requestBusy=useRef(false);
   const requestAbort=useRef<AbortController|null>(null);
@@ -54,7 +55,7 @@ export function useExploration({ project, store, active, onInspectDimension, onF
     try { action(); setError(''); } catch (e) { setError(e instanceof Error ? e.message : 'Could not update the map.'); }
   }
   function activateBranch(id:ExplorationSession['id']) {
-    attempt(()=>{store.selectExplorationBranch(id);setSelected(null);setConnection(null);setConnecting(false);setInspecting(null);if(!active)onExplore?.();const branch=store.getProject()!.exploration!.sessions.find(s=>s.id===id)!;onFocusCard(branchPoint(store.getProject()!,branch));});
+    attempt(()=>{store.selectExplorationBranch(id);setSelected(null);setConnection(null);setConnecting(false);setInspecting(null);onPanelRequest?.();const branch=store.getProject()!.exploration!.sessions.find(s=>s.id===id)!;onFocusCard(branchPoint(store.getProject()!,branch));});
   }
   function openEditor(id: ExplorationNode['id'] | 'new', branchFrom: ExplorationNode['id'] | null = null, kind:'idea'|'note'|'sketch'='idea') {
     onPanelRequest?.();
@@ -65,7 +66,7 @@ export function useExploration({ project, store, active, onInspectDimension, onF
     setTitle(node?.title ?? ''); setText(node?.content.text ?? ''); setEditing(id); setParent(branchFrom); setConnecting(false);
   }
   function choose(id: ExplorationNode['id']) {
-    if (!active) return;
+    onPanelRequest?.();
     if (connecting && selected && id !== selected) {
       attempt(() => {
         if (!connections.some(c => c.fromNodeId === selected && c.toNodeId === id)) store.explorationConnections.add({ fromNodeId: selected, toNodeId: id, directional: true });
@@ -191,30 +192,34 @@ export function useExploration({ project, store, active, onInspectDimension, onF
       <div><button className="project-button" disabled={!title.trim()||savingAttachment}>{savingAttachment?'Saving contribution…':'Save idea'}</button><button className="research-text-button" type="button" onClick={()=>setEditing(null)}>Cancel</button></div>
     </form>}
   </>;
-  const bounds = { x: EXPLORATION_X, y: 40, width: Math.max(650, ...nodes.map(n => point(n).x + IDEA_WIDTH + 24 - EXPLORATION_X)), height: Math.max(560, ...nodes.map(n => point(n).y + IDEA_HEIGHT + 24 - 40),...sessions.map(s=>branchPoint(project!,s).y+branchHeight(s)-40)) };
+  const mapProject = project && movingBranch ? {...project,exploration:project.exploration && {...project.exploration,sessions:project.exploration.sessions.map(s=>s.id===movingBranch.id?{...s,position:movingBranch.position}:s)}} : project;
+  const branchPosition=(s:ExplorationSession)=>branchPoint(mapProject!,s.id===movingBranch?.id?{...s,position:movingBranch.position}:s);
+  const bounds = { x: EXPLORATION_X, y: 40, width: Math.max(650,...sessions.map(s=>branchPosition(s).x+BRANCH_WIDTH+24-EXPLORATION_X), ...nodes.map(n => point(n).x + IDEA_WIDTH + 24 - EXPLORATION_X)), height: Math.max(560, ...nodes.map(n => point(n).y + IDEA_HEIGHT + 24 - 40),...sessions.map(s=>branchPosition(s).y+branchHeight(s)-40)) };
   function content(scale: number) {
     return <>
       <section className="map-exploration-area" aria-label="Exploration area" style={{left:bounds.x,top:bounds.y,width:bounds.width,height:bounds.height}} />
       {project&&<>
         <svg className="exploration-arrows exploration-membership" aria-label="Tuning branch connections">
-          {sessions.map(s=>{const p=branchPoint(project,s);return <path key={s.id} data-dimensions-branch={s.id} d={`M 1330 100 C 1380 100, 1380 ${p.y+36}, ${p.x} ${p.y+36}`} fill="none" stroke="#bbc8d7" strokeWidth="1.5"/>;})}
-          {nodes.filter(n=>n.explorationSession&&!connections.some(c=>c.toNodeId===n.id&&c.directional)).map(n=>{const s=sessions.find(s=>s.id===n.explorationSession?.id);if(!s)return null;const p=branchPoint(project,s),q=point(n);return <path key={n.id} data-branch-root={n.id} d={`M ${p.x+BRANCH_WIDTH} ${p.y+36} C ${p.x+BRANCH_WIDTH+40} ${p.y+36}, ${q.x-40} ${q.y+IDEA_HEIGHT/2}, ${q.x-8} ${q.y+IDEA_HEIGHT/2}`} fill="none" stroke="#aab5c0" strokeWidth="1.5" markerEnd={`url(#${marker})`}/>;})}
+          {sessions.map(s=>{const p=branchPosition(s);return <path key={s.id} data-dimensions-branch={s.id} d={`M 1330 100 C 1380 100, 1380 ${p.y+36}, ${p.x} ${p.y+36}`} fill="none" stroke="#bbc8d7" strokeWidth="1.5"/>;})}
+          {nodes.filter(n=>n.explorationSession&&!connections.some(c=>c.toNodeId===n.id&&c.directional)).map(n=>{const s=sessions.find(s=>s.id===n.explorationSession?.id);if(!s)return null;const p=branchPosition(s),q=point(n);return <path key={n.id} data-branch-root={n.id} d={`M ${p.x+BRANCH_WIDTH} ${p.y+36} C ${p.x+BRANCH_WIDTH+40} ${p.y+36}, ${q.x-40} ${q.y+IDEA_HEIGHT/2}, ${q.x-8} ${q.y+IDEA_HEIGHT/2}`} fill="none" stroke="#aab5c0" strokeWidth="1.5" markerEnd={`url(#${marker})`}/>;})}
         </svg>
-        <ExplorationBranches project={project} onSelect={activateBranch} onRename={(id,name)=>attempt(()=>store.updateExplorationBranch(id,{name}))} onExpand={(id,expanded)=>attempt(()=>store.updateExplorationBranch(id,{expanded}))} onInspectDimension={onInspectDimension}/>
-        {changed&&session&&<p className="exploration-branch-change" style={{left:branchPoint(project,session).x,top:branchPoint(project,session).y+branchHeight(session)+8}}>Current sliders have changed. This branch keeps its confirmed tuning.</p>}
+        <ExplorationBranches project={mapProject!} scale={scale} onPreview={(id,position)=>setMovingBranch(position?{id,position}:null)} onMove={(id,position)=>attempt(()=>store.updateExplorationBranch(id,{position}))} onSelect={activateBranch} onRename={(id,name)=>attempt(()=>store.updateExplorationBranch(id,{name}))} onExpand={(id,expanded)=>attempt(()=>store.updateExplorationBranch(id,{expanded}))} onInspectDimension={onInspectDimension}/>
+        {changed&&session&&<p className="exploration-branch-change" style={{left:branchPosition(session).x,top:branchPosition(session).y+branchHeight(session)+8}}>Current sliders have changed. This branch keeps its confirmed tuning.</p>}
       </>}
       <svg className="exploration-arrows" aria-label="Idea connections"><defs><marker id={marker} markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10" fill="#858c96" /></marker></defs>
         {connections.map(c => {
           const from = nodes.find(n => n.id === c.fromNodeId)!, to = nodes.find(n => n.id === c.toNodeId)!;
-          const a = point(from), b = point(to), dx = b.x - a.x, dy = b.y - a.y;
-          const factor = Math.max(Math.abs(dx) / (IDEA_WIDTH / 2 + 8), Math.abs(dy) / (IDEA_HEIGHT / 2 + 8), 1);
-          const x1 = a.x + IDEA_WIDTH / 2 + dx / factor, y1 = a.y + IDEA_HEIGHT / 2 + dy / factor;
-          const x2 = b.x + IDEA_WIDTH / 2 - dx / factor, y2 = b.y + IDEA_HEIGHT / 2 - dy / factor;
+          const a = point(from), b = point(to);
+          const direction = b.x >= a.x ? 1 : -1;
+          const x1 = a.x + (direction === 1 ? IDEA_WIDTH : 0), y1 = a.y + IDEA_HEIGHT / 2;
+          const x2 = b.x + (direction === 1 ? -8 : IDEA_WIDTH + 8), y2 = b.y + IDEA_HEIGHT / 2;
+          const cx1 = x1 + direction * 40, cx2 = x2 - direction * 32;
+          const path = `M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}`;
           return <g key={c.id} data-connection-id={c.id} data-selected={connection === c.id}>
             <title>{from.title || 'Idea'} → {to.title || 'Idea'}</title>
-            <line x1={x1} y1={y1} x2={x2} y2={y2} markerEnd={c.directional ? `url(#${marker})` : undefined} />
-            <line className="exploration-arrow-hit" role="button" aria-label={`Connection: ${from.title || 'Idea'} to ${to.title || 'Idea'}`} tabIndex={active ? 0 : -1} x1={x1} y1={y1} x2={x2} y2={y2} onPointerDown={e => e.stopPropagation()} onClick={() => { if (active) { setConnection(c.id); setSelected(null); setConnecting(false); } }} onKeyDown={e => { if (active && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setConnection(c.id); setSelected(null); } }} />
-            {c.label && <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 8}>{c.label}</text>}
+            <path d={path} fill="none" markerEnd={c.directional ? `url(#${marker})` : undefined} />
+            <path fill="none" className="exploration-arrow-hit" role="button" aria-label={`Connection: ${from.title || 'Idea'} to ${to.title || 'Idea'}`} tabIndex={active ? 0 : -1} d={path} onPointerDown={e => e.stopPropagation()} onClick={() => { if (active) { setConnection(c.id); setSelected(null); setConnecting(false); } }} onKeyDown={e => { if (active && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setConnection(c.id); setSelected(null); } }} />
+            {c.label && <text x={(x1 + 3 * cx1 + 3 * cx2 + x2) / 8} y={(y1 + y2) / 2 - 8}>{c.label}</text>}
           </g>;
         })}
       </svg>
@@ -240,5 +245,5 @@ export function useExploration({ project, store, active, onInspectDimension, onF
       </article>)}
     </>;
   }
-  return { toolbar, editor, content, bounds, hasContent: !!session || nodes.length > 0, focus:project&&session?branchPoint(project,session):undefined, session };
+  return { toolbar, editor, content, bounds, hasContent: !!session || nodes.length > 0, focus:project&&session?branchPosition(session):undefined, session };
 }
