@@ -10,11 +10,13 @@ const WorkspaceContext = createContext<{
   inspectorHost: HTMLDivElement | null;
   inspectCategory: (id: string) => void;
   categorySelection: CategorySelection;
+  clearCategorySelection: () => void;
+  resetPanelOverview: () => void;
   revealPanel: () => void;
   showDimensionControls: boolean;
   openDimensions: () => void;
   closeDimensions: () => void;
-}>({ panelStage: 'Research', inspectStage: () => {}, helpHost: null, stageHost: null, inspectorHost: null, inspectCategory: () => {}, categorySelection: null, revealPanel: () => {}, showDimensionControls: false, openDimensions: () => {}, closeDimensions: () => {} });
+}>({ panelStage: 'Research', inspectStage: () => {}, helpHost: null, stageHost: null, inspectorHost: null, inspectCategory: () => {}, categorySelection: null, clearCategorySelection: () => {}, resetPanelOverview: () => {}, revealPanel: () => {}, showDimensionControls: false, openDimensions: () => {}, closeDimensions: () => {} });
 export const useWorkspaceLayout = () => useContext(WorkspaceContext);
 
 export function WorkspaceLayout({ stage, panelReset = 0, panel, children }: { panelReset?: number; stage: string; panel: (stage: string) => ReactNode; children: ReactNode }) {
@@ -30,7 +32,8 @@ export function WorkspaceLayout({ stage, panelReset = 0, panel, children }: { pa
   const [inspectorHost, setInspectorHost] = useState<HTMLDivElement | null>(null);
   const [categorySelection, setCategorySelection] = useState<CategorySelection>(null);
   const revealPanel = () => { setCollapsed(false); requestAnimationFrame(() => panelRef.current?.scrollTo({ top: 0 })); };
-  return <WorkspaceContext.Provider value={{ panelStage, inspectStage: next => { setPanelView({ workflow: stage, panelReset, stage: next }); revealPanel(); }, helpHost, stageHost, inspectorHost, categorySelection, revealPanel, showDimensionControls,
+  return <WorkspaceContext.Provider value={{ panelStage, inspectStage: next => { setPanelView({ workflow: stage, panelReset, stage: next }); revealPanel(); }, helpHost, stageHost, inspectorHost, categorySelection, clearCategorySelection: () => setCategorySelection(null), revealPanel, showDimensionControls,
+    resetPanelOverview: () => { setCategorySelection(null); setPanelView({ workflow: stage, panelReset, stage }); },
     openDimensions: () => { setShowDimensionControls(true); revealPanel(); }, closeDimensions: () => setShowDimensionControls(false),
     inspectCategory: id => { setPanelView({ workflow: stage, panelReset, stage: 'Research' }); setCategorySelection({ id, token: Date.now() }); revealPanel(); } }}>
     <section className="continuous-workspace" data-panel-side={side} data-panel-collapsed={collapsed} aria-label="Shared design workspace">

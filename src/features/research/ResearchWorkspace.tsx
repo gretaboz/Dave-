@@ -1,5 +1,4 @@
 import { useWorkspaceLayout } from '../../app/WorkspaceLayout';
-import { categoryStyle } from '../../app/categoryStyles';
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import type { EntityId, ResearchCategory, Source } from '../../model/types';
@@ -39,7 +38,7 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
   const { project, status, errorOperation } = useProject();
   const store = useProjectStore();
   const session = useProjectSession();
-  const { categorySelection } = useWorkspaceLayout();
+  const { categorySelection, inspectCategory, clearCategorySelection } = useWorkspaceLayout();
   const inspectorRef = useRef<HTMLElement>(null);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const sourceDialog = useRef<HTMLDialogElement>(null);
@@ -51,8 +50,9 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
   const [uploadStatus, setUploadStatus] = useState('');
   const [selectedId, setSelectedId] = useState<EntityId<'source'> | null>(null);
   const [newName, setNewName] = useState('');
-  const [selectedCategoryId, setSelectedCategoryId] = useState<EntityId<'research_category'> | null>(null);
-  useEffect(() => { if (!categorySelection) return; setSelectedCategoryId(categorySelection.id as EntityId<'research_category'>); setSelectedId(null); const frame = requestAnimationFrame(() => { const inspector = inspectorRef.current; const panel = inspector?.closest<HTMLElement>('.stage-side-panel'); if (inspector && panel) panel.scrollTo({ top: panel.scrollTop + inspector.getBoundingClientRect().top - panel.getBoundingClientRect().top - 16 }); inspector?.focus({ preventScroll: true }); }); return () => cancelAnimationFrame(frame); }, [categorySelection]);
+  const selectedCategoryId=categorySelection?.id ?? null;
+  const setSelectedCategoryId=(id:string|null)=>id?inspectCategory(id):clearCategorySelection();
+  useEffect(() => { setSelectedId(null); const frame=requestAnimationFrame(()=>inspectorRef.current?.focus({preventScroll:true})); return ()=>cancelAnimationFrame(frame); },[categorySelection]);
   const [analysisStatus, setAnalysisStatus] = useState('');
   const [analysing, setAnalysing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +72,11 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
     if (existing) { existing.categoryIds.push(category.id); existing.categoryNames.push(category.name); }
     else excerpts.set(key, { passage, categoryIds: [category.id], categoryNames: [category.name] });
   }
-  const linkedSourceIds = new Set(selectedCategory?.passages?.map(passage => passage.source.id) ?? []);
+  const linkedSourceIds = new Set([...(selectedCategory?.passages?.map(passage => passage.source.id) ?? []),...sources.filter(source=>source.primaryCategoryId===selectedCategory?.id).map(source=>source.id)]);
+  const supportingSources=selectedCategory?sources.filter(source=>linkedSourceIds.has(source.id)):sources;
+  const panelExcerpts=[...excerpts.entries()].filter(([,excerpt])=>!selectedCategory || excerpt.categoryIds.includes(selectedCategory.id));
+  const sourcesWithExcerpts=new Set(panelExcerpts.map(([,excerpt])=>excerpt.passage.source.id));
+  const openSource=(source:Source)=>{setSelectedId(source.id);setDetailsExpanded(true);};
 
 
   async function analyse() {
@@ -182,7 +186,7 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
 
   const sourceDetails = <>
           <h4 className="research-column-title">Sources</h4>
-          {selectedCategory ? <>
+          {selectedCategory && !selected ? <>
             <h4>{selectedCategory.name}</h4>
             <p className="research-description-label">{selectedCategory.origin === 'researcher' ? 'Your category description' : selectedCategory.analysis?.promptVersion === 'demo-citrus-1' ? 'Synthetic demo description' : 'DAVE’s category description'}</p>
             <p className="research-summary">{selectedCategory.description || (selectedCategory.passages ? 'A source was deleted. Analyse again to propose a new summary, or keep exploring the remaining excerpts.' : 'A category organised by you.')}</p>
@@ -201,7 +205,7 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
           </> : null}
           {excerpts.size > 0 && <div className="research-supporting-excerpts">
             <h5>Supporting research</h5>
-            {[...excerpts.entries()].filter(([, excerpt]) => !selectedCategory || excerpt.categoryIds.includes(selectedCategory.id)).map(([key, { passage, categoryIds, categoryNames }]) => {
+            {[...excerpts.entries()].filter(([, excerpt]) => (selected || !selectedCategory || excerpt.categoryIds.includes(selectedCategory.id)) && (!selected || excerpt.passage.source.id===selected.id)).map(([key, { passage, categoryIds, categoryNames }]) => {
               const source = project.sources.find(source => source.id === passage.source.id);
               const content = source?.revision === passage.source.revision ? source
                 : source?.history.find(entry => entry.revision === passage.source.revision)?.content;
@@ -214,16 +218,43 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
                 : <p key={key} role="alert">The referenced source excerpt is unavailable.</p>;
             })}
           </div>}
+          {selected && ![...excerpts.values()].some(excerpt=>excerpt.passage.source.id===selected.id) && selected.preparedContent?.sections.map((section,index)=><section key={index}><h5>{section.location}</h5><blockquote>{section.text}</blockquote></section>)}
   </>;
 
   return (
     <section className="research-workspace research-organiser" aria-label="Research workspace">
-      <div className="research-stage-heading"><div><span className="stage-eyebrow">Make sense of your material</span><h2>Your research, organised<span>.</span></h2></div><span className="stage-count">{visibleCategories.length} categories</span></div>
+      <div className="research-stage-heading"><h2>Sources<span>.</span></h2></div>
+      {modeControl}
       {error && <p role="alert" className="project-error">{error}</p>}
       {uploadStatus && <p role="status">{uploadStatus}</p>}
       {analysisStatus && <p role="status" className="research-feedback">{analysisStatus}</p>}
+      <section ref={inspectorRef} tabIndex={-1} className="research-sources-panel" aria-label="Research details">
+        <header className="research-sources-heading">
+          <h3>{selectedCategory?.name ?? 'All sources'}</h3>
+          <p>{supportingSources.length} {supportingSources.length===1?'supporting source':'supporting sources'}</p>
+          {selectedCategory && <div className="research-category-controls">
+            <button className="research-text-button" type="button" onClick={()=>{clearCategorySelection();setSelectedId(null);}}>All sources</button>
+            <CategoryName key={selectedCategory.id} category={selectedCategory} onRename={name=>!!name.trim()&&change(()=>store.categories.update(selectedCategory.id,{name:name.trim()}))}/>
+            <button className="research-text-button" type="button" aria-label={`Delete category ${selectedCategory.name}`} disabled={busy} onClick={()=>deleteCategory(selectedCategory)}>Delete category</button>
+          </div>}
+        </header>
+        <div className="research-source-list" role="region" aria-label="Source excerpts" tabIndex={0}>
+          {panelExcerpts.map(([key,{passage,categoryNames}])=>{
+            const source=sources.find(item=>item.id===passage.source.id);
+            const content=source?.revision===passage.source.revision?source:source?.history.find(entry=>entry.revision===passage.source.revision)?.content;
+            const section=content?.preparedContent?.sections[passage.sectionIndex];
+            return source&&section?<ExcerptCard key={key} compact text={section.text.slice(passage.start,passage.end)} filename={source.originalFile.filename} location={section.location} categoryName={categoryNames.join(' ')} categoryNames={categoryNames} disabled={busy||analysing} onViewSource={()=>openSource(source)}/>:<p key={key} role="alert">The referenced source excerpt is unavailable.</p>;
+          })}
+          {supportingSources.filter(source=>!sourcesWithExcerpts.has(source.id)).map(source=>{
+            const section=source.preparedContent?.sections[0];
+            return <ExcerptCard key={source.id} compact filename={source.originalFile.filename} location={section?.location??'Original document'} text={section?.text??source.processingError??'No readable excerpt is available yet.'} categoryName="" categoryNames={[]} disabled={busy||analysing} onViewSource={()=>openSource(source)}/>;
+          })}
+          {!supportingSources.length&&!panelExcerpts.length&&<p className="research-empty">{selectedCategory?'No sources are linked to this category yet.':'No sources yet. Add documents in the Research library.'}</p>}
+        </div>
+      </section>
+      <details className="research-library-tools"><summary>Research library · {sources.length} files</summary>
       <section className="research-files research-library" aria-label="Uploaded files">
-        <div className="research-library-heading"><h4>Research Library</h4>{modeControl}</div>
+        <div className="research-library-heading"><h4>Research Library</h4></div>
         <div className="research-upload-area">
           <label className="research-upload-button"><span className="research-upload-plus" aria-hidden="true">+</span><span>Upload project files</span>
             <input className="research-file-input" aria-label="Upload research documents" type="file" accept=".pdf,.txt,.docx" multiple disabled={busy || analysing || mode === 'demo'}
@@ -235,7 +266,7 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
         <details className="research-library-files"><summary>Uploaded files ({sources.length})</summary>
         {visibleSources.length ? <ul>{visibleSources.map(source => <li key={source.id} className={selectedCategory ? linkedSourceIds.has(source.id) ? 'research-file-linked' : 'research-file-other' : undefined}>
           <button className="research-file-name" aria-label={source.processingState === 'failed' ? `${source.title} — Extraction failed` : source.title}
-            onClick={() => { setSelectedId(source.id); setSelectedCategoryId(null); }}>{source.title}</button>
+            onClick={() => openSource(source)}>{source.title}</button>
           <span className="research-file-status">{({ ready: 'Ready', failed: 'Could not read file', processing: 'Reading…', unprocessed: 'Not read yet' })[source.processingState]}</span>
           <button className="research-text-button" aria-label={`Delete ${source.originalFile.filename}`} disabled={busy || analysing || status === 'saving' || status === 'error'} onClick={() => { void deleteFile(source); }}>Delete</button>
         </li>)}</ul> : <p className="research-empty">No research sources yet. Upload project files to begin.</p>}
@@ -248,34 +279,6 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
           <button className="project-button research-analyse-button" type="button" disabled={busy || analysing || !sources.some(source => source.processingState === 'ready' && source.preparedContent)}
             onClick={() => { void analyse(); }}>{analysing ? 'Analysing research…' : 'Analyse research'}</button>
       </div>
-      <div className="research-folder-workspace" aria-label="Categories and Sources">
-      <div className="research-layout">
-        <section className="research-category-list" aria-label="Research categories">
-          <h4>Categories</h4>
-          <div className="research-category-options">
-            {visibleCategories.map((category, index) => {
-              const count = new Set(category.passages?.map(p => p.source.id) ?? sources.filter(s => s.primaryCategoryId === category.id).map(s => s.id)).size;
-              return <div key={category.id} className="research-category-row" style={categoryStyle(project, category.id)}>
-                <span className="research-card-eyebrow"><i />Category {String(index + 1).padStart(2, '0')}</span><button className="research-category-option" type="button" aria-label={`Inspect ${category.name}`} aria-pressed={selectedCategoryId === category.id}
-                onClick={() => { setSelectedCategoryId(category.id); setSelectedId(null); }}>
-                <span>{category.name}</span><small>{category.review?.state === 'rejected' ? 'Rejected' : `${count} ${count === 1 ? 'source' : 'sources'}`}</small>
-              </button>
-                {category.description && <p className="research-card-description">{category.description}</p>}
-                <div className="research-category-controls">
-                  <CategoryName key={category.id} category={category} onRename={name => !!name.trim() && change(() => store.categories.update(category.id, { name: name.trim() }))} />
-                  <button className="research-text-button" type="button" aria-label={`Delete category ${category.name}`} disabled={busy} onClick={() => deleteCategory(category)}>Delete</button>
-                </div>
-              </div>;
-            })}
-            {!visibleCategories.length && <p className="research-category-empty">{categories.length ? 'No active categories.' : 'No categories yet.'}</p>}
-          </div>
-        </section>
-        <section ref={inspectorRef} tabIndex={-1} className="research-inspector" aria-label="Research details">
-          <button className="research-text-button research-open-details" type="button" onClick={() => setDetailsExpanded(true)}>Open source details ↗</button>
-          {!detailsExpanded && sourceDetails}
-        </section>
-      </div>
-      </div>
       <section className="research-add-category" aria-label="Add your own category">
         <h4>Add your own category</h4>
           <form className="research-inline-form research-create-category" onSubmit={createCategory}>
@@ -283,6 +286,7 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
             <button className="project-button" disabled={!newName.trim() || busy}>Create category</button>
           </form>
       </section>
+      </details>
       <dialog ref={sourceDialog} className="research-source-dialog" aria-label="Source details" onClose={() => setDetailsExpanded(false)}>
         <button className="research-dialog-close research-text-button" type="button" aria-label="Close source details" onClick={() => setDetailsExpanded(false)}>×</button>
         <span className="stage-eyebrow">Supporting research</span>
