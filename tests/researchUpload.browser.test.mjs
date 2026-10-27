@@ -19,6 +19,7 @@ async function setup() {
   await page.getByLabel('Project name', { exact: true }).fill('Upload test');
   await page.getByRole('button', { name: 'Create project', exact: true }).click();
   await page.getByRole('status').filter({ hasText: 'Saved locally.' }).waitFor();
+  await page.locator('.research-library-tools > summary').click();
   return { context, page };
 }
 async function project(page) {
@@ -52,15 +53,19 @@ test('TXT uploads preserve manual categories, original bytes, and located text a
     for (const key of ['evidence', 'claims', 'relationships', 'dimensions', 'directions']) assert.deepEqual(saved[key], []);
     const original = await page.evaluate(async id => (await (await import('/src/persistence/localPersistence.ts')).createLocalPersistence().loadFile(id)).text(), saved.sources[0].originalFile.id);
     assert.equal(original, text);
+    await page.locator('.research-source-list').getByRole('button', { name: 'View source', exact: true }).click();
     const downloadEvent = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Download original' }).click();
     assert.equal((await downloadEvent).suggestedFilename(), 'notes.txt');
     await page.reload();
     await page.getByRole('status').filter({ hasText: 'Saved locally.' }).waitFor();
     assert.deepEqual(await project(page), saved);
+    await page.locator('.research-library-tools > summary').click();
     await page.locator('.research-library-files > summary').click();
     await page.getByRole('button', { name: 'notes.txt', exact: true }).first().click();
-    assert.equal(await page.getByText('Second observation with café.', { exact: true }).count(), 0);
+    // The full original text is available in Source details, rather than in the compact preview.
+    assert.equal(await page.getByRole('dialog', { name: 'Source details' }).getByText('Second observation with café.', { exact: true }).count(), 1);
+    assert.equal(await page.locator('.research-source-list').getByText('Second observation with café.', { exact: true }).count(), 0);
     assert.equal(await page.getByRole('heading', { name: 'Extracted text' }).count(), 0);
   } finally { await context.close(); }
 });

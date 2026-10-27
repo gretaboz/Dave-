@@ -712,6 +712,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   color: var(--ink);
 }
 .app-header .project-form { max-width: 640px; }
+.new-project-dialog { position: fixed; inset: 0; margin: auto; width: min(420px, calc(100vw - 40px)); max-height: calc(100dvh - 40px); box-sizing: border-box; padding: 0; border: 1px solid var(--color-border); border-radius: 22px; background: var(--cream); color: var(--ink); box-shadow: 0 20px 70px #0003; }
+.new-project-dialog::backdrop { background: rgb(20 20 20 / 32%); }
+.app-header .new-project-dialog .project-form { margin: 0; padding: 28px; border: 0; border-radius: 0; max-width: none; }
+.new-project-dialog h2 { margin: 0 0 12px; font-size: 24px; font-weight: 600; letter-spacing: -.5px; }
+.new-project-dialog label { font-size: 13px; }
+.new-project-dialog input { box-sizing: border-box; width: 100%; min-width: 0; border-radius: 10px; }
+.new-project-dialog .project-form > div { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 12px; }
 .app-header .project-library ul { max-width: none; }
 .app-header .project-error { border-color: var(--color-error); }
 
