@@ -252,7 +252,7 @@ export function ResearchWorkspace({ mode = 'live', modeControl }: { mode?: 'demo
           {!supportingSources.length&&!panelExcerpts.length&&<p className="research-empty">{selectedCategory?'No sources are linked to this category yet.':'No sources yet. Add documents in the Research library.'}</p>}
         </div>
       </section>
-      <details className="research-library-tools"><summary>Research library · {sources.length} files</summary>
+      <details className="research-library-tools" open={mode === 'live' && sources.length === 0}><summary>Research library · {sources.length} files</summary>
       <section className="research-files research-library" aria-label="Uploaded files">
         <div className="research-library-heading"><h4>Research Library</h4></div>
         <div className="research-upload-area">

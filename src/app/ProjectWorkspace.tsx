@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useProject, useProjectSession } from '../state/ProjectProvider';
 
@@ -14,6 +14,11 @@ export const ProjectWorkspace = memo(function ProjectWorkspace({ onProjectOpened
   const { project, projects = [], status, error, errorOperation } = useProject();
   const session = useProjectSession();
   const [creating, setCreating] = useState(false);
+  const createDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (creating) createDialog.current?.showModal();
+    else createDialog.current?.close();
+  }, [creating]);
   const busy = status === 'loading' || status === 'saving' || status === 'error';
   const [name, setName] = useState('');
   const [editingName, setEditingName] = useState(false);
@@ -68,13 +73,16 @@ export const ProjectWorkspace = memo(function ProjectWorkspace({ onProjectOpened
         }}>New Project</button>
       </div>
       {formError && !creating && !editingName && project && <p role="alert">{formError}</p>}
+      <dialog ref={createDialog} className="new-project-dialog" aria-labelledby="new-project-title" onCancel={() => setCreating(false)} onClose={() => setCreating(false)}>
       {creating && <form className="project-form" onSubmit={createProject}>
+        <h2 id="new-project-title">New project</h2>
         <label htmlFor="new-project-name">Project name</label>
         <input id="new-project-name" value={name} onChange={event => setName(event.target.value)} required autoFocus />
         {formError && <p role="alert">{formError}</p>}
         <div><button className="project-button" disabled={busy || !name.trim()}>Create project</button>
           <button className="research-text-button" type="button" onClick={() => setCreating(false)}>Cancel</button></div>
       </form>}
+      </dialog>
         {libraryOpen && <section className="project-library" aria-label="Project library">
         <h3>Project library</h3>
         <ul>{(!projects.some(item => item.id === project?.id) && project ? [...projects, project] : projects).map(item =>
