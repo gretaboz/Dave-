@@ -22,19 +22,19 @@ function previewRange(text: string, categoryName: string) {
   return { start, end };
 }
 
-export function ExcerptCard({ text, filename, location, categoryName, categoryNames, linked, disabled, onViewSource }: {
-  text: string; filename: string; location: string; categoryName: string; categoryNames: string[]; linked?: boolean; disabled: boolean; onViewSource: () => void;
+export function ExcerptCard({ text, filename, location, categoryName, categoryNames, linked, disabled, onViewSource, compact=false }: {
+  text: string; filename: string; location: string; categoryName: string; categoryNames: string[]; linked?: boolean; disabled: boolean; onViewSource: () => void; compact?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const range = previewRange(text, categoryName);
   const shortened = range.start > 0 || range.end < text.length;
   return <article className={`research-excerpt${linked === true ? ' research-excerpt-linked' : linked === false ? ' research-excerpt-other' : ''}`} data-linked={linked} aria-label={`Excerpt from ${filename}`}>
     <div className="research-excerpt-source"><strong>{filename}</strong><span>{location}</span></div>
-    <p className="research-excerpt-categories">{categoryNames.join(' · ')}{linked === true ? ' · Linked to selected category' : ''}</p>
-    {shortened && !expanded && <p className="research-excerpt-preview-label">Shortened preview</p>}
+    {!compact && <p className="research-excerpt-categories">{categoryNames.join(' · ')}{linked === true ? ' · Linked to selected category' : ''}</p>}
+    {!compact && shortened && !expanded && <p className="research-excerpt-preview-label">Shortened preview</p>}
     <blockquote>{expanded ? text : text.slice(range.start, range.end)}</blockquote>
     <div className="research-excerpt-actions">
-      {shortened && <button className="research-text-button" type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? 'Show less' : 'Show more'}</button>}
+      {!compact && shortened && <button className="research-text-button" type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? 'Show less' : 'Show more'}</button>}
       <button className="research-text-button" type="button" disabled={disabled} onClick={onViewSource}>View source</button>
     </div>
   </article>;

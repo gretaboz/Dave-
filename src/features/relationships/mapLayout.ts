@@ -27,7 +27,7 @@ export function claimCategories(project: Project, claim: Claim): string[] {
   }
   return active.filter(c => counts.has(c.id)).sort((a,b) => counts.get(b.id)! - counts.get(a.id)! || a.order - b.order || a.id.localeCompare(b.id)).map(c => c.id);
 }
-export function deriveMap(project: Project, options: {ignoreManual?:boolean;expandedClaimId?:string|null;reserveCategorySpace?:boolean}={}) {
+export function deriveMap(project: Project, options: {ignoreManual?:boolean;expandedClaimId?:string|null;reserveCategorySpace?:boolean;relationshipHeights?:ReadonlyMap<string,number>}={}) {
  const claims=project.claims.filter(c=>!c.archivedAt),relationships=project.relationships.filter(r=>!r.archivedAt);
  const labels=claimMapLabels(claims),associations=new Map(claims.map(c=>[c.id,claimCategories(project,c)]));
  const heights=new Map<string,number>(claims.map(c=>[c.id,c.id===options.expandedClaimId?220:80]));
@@ -47,10 +47,11 @@ export function deriveMap(project: Project, options: {ignoreManual?:boolean;expa
  }
  const visible=relationships.filter(r=>relationshipType(r.type)!=='unclassified'&&r.claims.length===2&&r.claims.every(c=>positions.has(c.claim.id)));
  const relationshipPositions=new Map<string,Point>();
- const desired=(r:typeof visible[number])=>r.claims.reduce((sum,c)=>sum+positions.get(c.claim.id)!.y+heights.get(c.claim.id)!/2,0)/2-50;
+ const relationshipHeights=new Map<string,number>(visible.map(r=>[r.id,options.relationshipHeights?.get(r.id)??100]));
+ const desired=(r:typeof visible[number])=>r.claims.reduce((sum,c)=>sum+positions.get(c.claim.id)!.y+heights.get(c.claim.id)!/2,0)/2-relationshipHeights.get(r.id)!/2;
  let nextY=40;
- for(const r of [...visible].sort((a,b)=>desired(a)-desired(b)||a.id.localeCompare(b.id))){const y=Math.max(nextY,desired(r));relationshipPositions.set(r.id,{x:600,y});nextY=y+124;}
- return {claims,relationships,regions,positions,associations,heights,labels,relationshipPositions};
+ for(const r of [...visible].sort((a,b)=>desired(a)-desired(b)||a.id.localeCompare(b.id))){const y=Math.max(nextY,desired(r));relationshipPositions.set(r.id,{x:600,y});nextY=y+relationshipHeights.get(r.id)!+24;}
+ return {claims,relationships,regions,positions,associations,heights,labels,relationshipPositions,relationshipHeights};
 }
 export function relationshipRoute(a:Point,b:Point,aHeight:number,bHeight:number) {
  const horizontal=Math.abs(a.x-b.x)>=CARD_WIDTH;
@@ -61,9 +62,9 @@ export function relationshipRoute(a:Point,b:Point,aHeight:number,bHeight:number)
  return {from,to,node:{x:midpoint.x-80,y:midpoint.y-20},path:horizontal?`M ${from.x} ${from.y} L ${midpoint.x} ${from.y} L ${midpoint.x} ${to.y} L ${to.x} ${to.y}`:`M ${from.x} ${from.y} L ${from.x} ${midpoint.y} L ${to.x} ${midpoint.y} L ${to.x} ${to.y}`};
 }
 
-export function layeredRelationshipRoute(claim:Point,height:number,node:Point,port:number) {
+export function layeredRelationshipRoute(claim:Point,height:number,node:Point,port:number,nodeHeight=100) {
  const right=node.x+105>=claim.x+CARD_WIDTH/2;
- const from={x:claim.x+(right?CARD_WIDTH:0),y:claim.y+height/2},to={x:node.x+(right?0:210),y:node.y+(port===0?35:85)};
+ const from={x:claim.x+(right?CARD_WIDTH:0),y:claim.y+height/2},to={x:node.x+(right?0:210),y:node.y+nodeHeight*(port===0?.35:.85)};
  const bend=Math.max(40,Math.abs(to.x-from.x)/2);
  return {from,to,path:`M ${from.x} ${from.y} C ${from.x+(right?bend:-bend)} ${from.y}, ${to.x+(right?-bend:bend)} ${to.y}, ${to.x} ${to.y}`};
 }

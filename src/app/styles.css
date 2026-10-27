@@ -538,7 +538,7 @@ body {
 
 .map-relationship-node { width: 210px; height: 120px; display: flex; flex-direction: column; gap: 8px; padding: 12px; text-align: left; }
 .map-relationship-node strong { font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
-.map-relationship-node span { font-size: 13px; line-height: 1.4; overflow: auto; }
+.map-relationship-node span { font-size: 13px; line-height: 1.4; overflow: visible; overflow-wrap: anywhere; flex-shrink: 0; }
 
 /* Compact stacked starting layout, following the latest sketch. */
 .map-compact-claim { height: 80px; min-height: 80px; padding: 10px 12px; gap: 4px; }
@@ -547,7 +547,7 @@ body {
 .map-compact-claim:has(.map-expanded-interpretation) { height: 220px; }
 .map-category { padding: 14px 24px; border-radius: 12px; }
 .map-category h3 { font-size: 16px; }
-.map-relationship-node { height: 100px; min-height: 100px; }
+.map-relationship-node { height: auto; min-height: 100px; }
 
 
 /* Shared control treatment; colour only, preserving layout and interactions. */

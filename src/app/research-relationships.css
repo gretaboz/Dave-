@@ -150,4 +150,25 @@
 
 .workspace-research .research-folder-workspace:has(.research-category-option[aria-pressed='true']) .research-category-option[aria-pressed='false'] { background: transparent; border-color: transparent; }
 .research-source-dialog .research-supporting-excerpts { display: grid; gap: 14px; }
+
+/* Research categories live on the map; the existing movable panel lists sources. */
+.workspace-research .research-organiser { display: block; }
+.workspace-research .research-stage-heading { margin-bottom: 10px; }
+.workspace-research .research-sources-panel { min-width: 0; min-height: 0; }
+.workspace-research .research-sources-heading { margin: 12px 0; }
+.workspace-research .research-sources-heading h3 { margin: 0 0 4px; overflow-wrap: anywhere; }
+.workspace-research .research-sources-heading > p { margin: 0; color: var(--color-text-muted); }
+.workspace-research .research-sources-heading .research-category-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 8px 0 0; }
+.workspace-research .research-sources-heading .research-category-heading { margin: 0; }
+.workspace-research .research-source-list { display: grid; align-content: start; gap: 8px; max-height: min(58dvh, 520px); overflow-y: auto; overscroll-behavior: contain; padding: 2px; }
+.workspace-research .research-source-list .research-excerpt { min-height: 0; height: auto; padding: 10px 12px; margin: 0; }
+.workspace-research .research-source-list .research-excerpt blockquote { margin: 6px 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.workspace-research .research-source-list .research-excerpt-source { gap: 2px 8px; }
+.workspace-research .research-source-list .research-excerpt-source strong { overflow-wrap: anywhere; }
+.workspace-research .research-source-list .research-excerpt-actions { margin: 0; }
+.workspace-research .research-library-tools { margin-top: 16px; border-top: 1px solid var(--color-border); padding-top: 12px; }
+.workspace-research .research-library-tools > summary { cursor: pointer; }
+.workspace-research .research-library-tools .research-add-category { margin-top: 12px; padding: 0; }
+.workspace-research .map-category { pointer-events: auto; cursor: pointer; }
+.workspace-research .map-category[data-selected='true'], .workspace-research .map-category:focus-visible { outline: 2px solid var(--category-accent); outline-offset: 3px; }
 .research-category-map-node { color: var(--category-ink, var(--ink)); }
