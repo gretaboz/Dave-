@@ -62,6 +62,7 @@ export function RelationshipsMap({project,selection,onSelect,onMove,onReorganise
     return ()=>clearTimeout(timer);
   },[view,stage,onViewChange]);
   function changeView(next:MapViewport|((old:MapViewport)=>MapViewport)) {
+    defaultCamera.current=false;
     const value=typeof next==='function'?next(view):next;
     viewCache.current[stage]=value;
     viewDirty.current=true;
@@ -95,6 +96,19 @@ export function RelationshipsMap({project,selection,onSelect,onMove,onReorganise
   },[stage,project.id,project.categories]);
   const toolbarRef=useRef<HTMLDivElement>(null);
   const mapTop=()=> (toolbarRef.current?.offsetTop ?? 14)+(toolbarRef.current?.offsetHeight ?? 90)+20;
+  // Keep the default camera below floating controls, including when they wrap.
+  // Saved cameras and deliberate pan/zoom positions remain under designer control.
+  const defaultCamera=useRef(!project.mapViews?.[stage]);
+  useLayoutEffect(()=>{
+    defaultCamera.current=!project.mapViews?.[stage];
+    const toolbar=toolbarRef.current;if(!toolbar)return;
+    const measure=()=>{
+      if(defaultCamera.current && !viewDirty.current) setView(previous=>({...previous,y:mapTop()}));
+    };
+    measure();
+    const observer=new ResizeObserver(measure);observer.observe(toolbar);
+    return ()=>observer.disconnect();
+  },[project.id]);
   const dimensionArea=useRef<HTMLDivElement>(null);
   const dimensionHeight=useRef(0);
   const [dimensionY,setDimensionY]=useState<Record<string,number>>({});
