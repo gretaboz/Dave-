@@ -58,6 +58,15 @@ function DimensionEditor({ project, dimension, onSave, onClose, onRemove }: {
 }
 
 
+// Keep generated reference syntax out of prose; structured findings below retain the links.
+function readableDimensionText(text: string) {
+  return text
+    .replace(/\((?:Claims?|Passages?|Evidence|Relationships?)\s+[^)]*(?:[0-9a-f]{8}-[0-9a-f-]{27,}|passage-\d+)[^)]*\)/gi, '')
+    .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '')
+    .replace(/\bpassage-\d+\b/gi, '')
+    .replace(/ +([,.;:])/g, '$1').replace(/ {2,}/g, ' ').trim();
+}
+
 function DimensionExcerpts({project,dimension}:{project:Project;dimension:Dimension}) {
   const session=useProjectSession();const [error,setError]=useState('');
   const excerpts:{key:string;text?:string;location?:string;sourceId?:string}[]=(dimension.evidence??[]).map(ref=>{
@@ -172,18 +181,18 @@ export function DimensionsWorkspace({mode='live',stage='Dimensions',onExplore}:{
             }
             setEditing(null);
           })} />}
-        {inspected && <section><h3>{inspected.name}</h3>{inspected.archivedAt && <p>This dimension was removed. Its saved findings remain available.</p>}<p>Associated findings</p><p>Associations explain relevance, not proof or causality.</p>
-          {inspected.origin!=='researcher'&&<p>{inspected.grounding==='research_grounded'&&(inspected.evidence?.length||inspected.researchPassages?.length)?'Research-supported consideration':'AI inference · Evidence not verified'}</p>}
-          {inspected.rationale&&<p>{inspected.rationale}</p>}
-          {inspected.limitations.map((text,i)=><p key={i}>{text}</p>)}
-          {inspected.origin!=='researcher'&&<dl className="dimension-proposal-positions">{positions.map((value,i)=><div key={value}><dt>{value>0?'+1':value}: {inspected[labels[i]]}</dt><dd>{inspected[explanations[i]]||'No explanation saved.'}</dd></div>)}</dl>}
-          <DimensionExcerpts project={project} dimension={inspected} />
+        {inspected && <section className="dimension-details"><header><span className="stage-eyebrow">Dimension details</span><h3>{inspected.name}</h3></header>{inspected.archivedAt && <p>This dimension was removed. Its saved findings remain available.</p>}
+          {inspected.origin!=='researcher'&&<p className="dimension-grounding">{inspected.grounding==='research_grounded'&&(inspected.evidence?.length||inspected.researchPassages?.length)?'Research-supported consideration':'AI inference · Evidence not verified'}</p>}
+          {inspected.rationale&&<section className="dimension-detail-section"><h4>Why this dimension?</h4><p>{readableDimensionText(inspected.rationale)}</p></section>}
+          {inspected.limitations.length>0&&<details className="dimension-limitations"><summary>What to keep in mind</summary><ul>{inspected.limitations.map((text,i)=><li key={i}>{readableDimensionText(text)}</li>)}</ul></details>}
+          {inspected.origin!=='researcher'&&<section className="dimension-detail-section"><h4>Ways to explore</h4><dl className="dimension-proposal-positions">{positions.map((value,i)=><div key={value}><dt>{inspected[labels[i]]}</dt><dd>{inspected[explanations[i]]||'No explanation saved.'}</dd></div>)}</dl></section>}
+          <section className="dimension-detail-section"><h4>Supporting research</h4><p className="dimension-detail-hint">Open a source or finding to see where this came from. These links explain relevance, not proof or causality.</p><DimensionExcerpts project={project} dimension={inspected} /></section>
           {!inspected.claims.length && !inspected.relationships.length && !inspected.evidence?.length && !inspected.researchPassages?.length && <p>No findings associated yet. Use Edit to choose existing findings.</p>}
           {(['claims', 'relationships'] as const).flatMap(kind => inspected[kind].map(reference => {
             const item = project[kind].find(item => item.id === reference.id);
             const content = item?.revision === reference.revision ? item : item?.history.find(h => h.revision === reference.revision)?.content;
-            return <div className="dimension-finding" key={reference.id}><p>{content ? 'statement' in content ? content.statement : content.description : 'This finding is unavailable.'}</p>
-              <small>Associated revision {reference.revision}{item?.archivedAt ? ' · Archived finding' : ''}</small>
+            return <div className="dimension-finding" key={reference.id}><p>{content ? 'statement' in content ? readableDimensionText(content.statement) : readableDimensionText(content.description) : 'This finding is unavailable.'}</p>
+              <small>{kind === 'claims' ? 'Research claim' : 'Research relationship'}{item?.archivedAt ? ' · Archived finding' : ''}{item && item.revision !== reference.revision ? ' · Earlier version' : ''}</small>
               {item && <button className="research-text-button" onClick={() => { inspectStage('Relationships'); setSelection({ kind: kind === 'claims' ? 'claim' : 'relationship', id: item.id }); }}>Inspect research{item.revision !== reference.revision ? ' (current version)' : ''}</button>}
             </div>;
           }))}

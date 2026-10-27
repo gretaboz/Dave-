@@ -31,7 +31,7 @@ test('grounded proposals, edits and original evidence persist; unchanged researc
  assert.equal(await page.locator('.progressive-map-workspace .map-claim strong').first().innerText(),'Cleanup may discourage use');
  assert.equal(await page.locator('.progressive-map-workspace .map-relationship-node').count(),1);
  assert.equal(await page.locator('.progressive-map-workspace .map-edge').count(),2);
- await page.getByRole('button',{name:'Clear selection',exact:true}).click();assert.equal(await page.locator('.progressive-map-workspace .map-edge').count(),2);
+ await page.getByRole('button',{name:'Close inspector',exact:true}).click();assert.equal(await page.locator('.progressive-map-workspace .map-edge').count(),2);
  await page.getByRole('button',{name:'Cleanup may discourage use. proposed',exact:true}).click();
  await page.locator('.progressive-map-workspace .map-relationship-node').click();
  const inspector=page.getByLabel('Evidence inspector');
@@ -90,6 +90,6 @@ test('grounded proposals, edits and original evidence persist; unchanged researc
  assert.equal(await page.locator('.progressive-map-workspace .map-edge-tension').count(),2);
  const after=await page.evaluate(async()=>(await import('/src/state/projectStore.ts')).projectStore.getProject().relationships.at(-1));
  assert.equal(after.id,before.id);assert.equal(after.history[0].content.type,'trade_off');assert.equal(after.history[0].content.review.state,'accepted');
- await page.getByRole('button',{name:'Clear selection',exact:true}).click();assert.equal(await page.locator('.progressive-map-workspace .map-edge').count(),4);
+ await page.getByRole('button',{name:'Close inspector',exact:true}).click();assert.equal(await page.locator('.progressive-map-workspace .map-edge').count(),4);
  } finally {await browser.close();await server.close();}
 });

@@ -33,10 +33,14 @@ test('explicit analysis, category inspection, rename, delete, refresh and failed
     ]);
     await page.waitForFunction(() => !document.querySelector('input[type=file]').disabled);
     assert.equal(calls, 0);
-    assert.equal(await page.getByText('The entrance was hard to find.', { exact: true }).count(), 0);
+    // Original-source previews are visible before AI interpretation.
+    assert.equal(await page.getByText('The entrance was hard to find.', { exact: true }).count(), 1);
+    const unanalysed = await page.evaluate(async () => (await import('/src/state/projectStore.ts')).projectStore.getProject());
+    for (const key of ['categories', 'evidence', 'claims', 'relationships', 'dimensions']) assert.deepEqual(unanalysed[key], []);
+    await page.locator('.research-library-tools > summary').click();
     await page.getByRole('button', { name: 'Analyse research', exact: true }).click();
     await page.getByText('1 categories proposed.', { exact: false }).waitFor();
-    await page.getByRole('button', { name: 'Inspect Finding the entrance' }).click();
+    await page.getByRole('button', { name: 'Finding the entrance', exact: true }).click();
     await page.getByText('The entrance was hard to find.', { exact: true }).waitFor();
     await page.getByText('Visitors asked where the entrance was.', { exact: true }).waitFor();
     assert.equal(await page.getByRole('button', { name: 'View source' }).count(), 2);
@@ -50,11 +54,12 @@ test('explicit analysis, category inspection, rename, delete, refresh and failed
     await page.getByRole('status').filter({ hasText: 'Saved locally.' }).waitFor();
     const before = await page.evaluate(async () => (await import('/src/state/projectStore.ts')).projectStore.getProject());
     await page.reload();
-    await page.getByText('No categories yet.', { exact: true }).waitFor();
-    assert.equal(await page.getByRole('button', { name: 'Inspect Entrances' }).count(), 0);
+    await page.getByText('Your map is waiting. Organise research to add categories.', { exact: true }).waitFor();
+    assert.equal(await page.getByRole('button', { name: 'Entrances', exact: true }).count(), 0);
     assert.equal(await page.getByLabel('Show rejected categories').count(), 0);
     await page.unroute('**/api/research/cluster');
     await page.route('**/api/research/cluster', route => route.fulfill({ status: 502, json: { error: 'OpenAI usage limits were reached.' } }));
+    await page.locator('.research-library-tools > summary').click();
     await page.getByRole('button', { name: 'Analyse research', exact: true }).click();
     await page.getByRole('alert').filter({ hasText: 'OpenAI usage limits' }).waitFor();
     const after = await page.evaluate(async () => (await import('/src/state/projectStore.ts')).projectStore.getProject());
@@ -84,6 +89,7 @@ test('file deletion confirms, clears affected summaries and stored text, preserv
       return sources[0].originalFile.id;
     });
     await page.getByRole('status').filter({ hasText: 'Saved locally.' }).waitFor();
+    await page.locator('.research-library-tools > summary').click();
     await page.locator('.research-library-files > summary').click();
     page.once('dialog', dialog => dialog.dismiss());
     await page.getByRole('button', { name: 'Delete remove.txt' }).click();
@@ -91,7 +97,7 @@ test('file deletion confirms, clears affected summaries and stored text, preserv
     page.once('dialog', async dialog => { assert.match(dialog.message(), /cannot be undone/); await dialog.accept(); });
     await page.getByRole('button', { name: 'Delete remove.txt' }).click();
     await page.getByRole('status').filter({ hasText: 'Saved locally.' }).waitFor();
-    await page.getByRole('button', { name: 'Inspect Renamed topic' }).click();
+    await page.getByRole('button', { name: 'Renamed topic', exact: true }).click();
     await page.getByText('Remaining research.', { exact: true }).waitFor();
     assert.equal(await page.getByText('Unique deleted research.', { exact: true }).count(), 0);
     const saved = await page.evaluate(async id => {
@@ -106,13 +112,14 @@ test('file deletion confirms, clears affected summaries and stored text, preserv
     assert.equal(JSON.stringify(saved.project).includes('Unique deleted research'), false);
     await page.reload();
     assert.equal(await page.getByRole('button', { name: 'remove.txt', exact: true }).count(), 0);
-    await page.getByRole('button', { name: 'Inspect Renamed topic' }).click();
+    await page.getByRole('button', { name: 'Renamed topic', exact: true }).click();
     await page.getByText('Remaining research.', { exact: true }).waitFor();
+    await page.locator('.research-library-tools > summary').click();
     await page.locator('.research-library-files > summary').click();
     page.once('dialog', dialog => dialog.accept());
     await page.getByRole('button', { name: 'Delete keep.txt' }).click();
     await page.getByRole('status').filter({ hasText: 'Saved locally.' }).waitFor();
-    assert.equal(await page.getByRole('button', { name: 'Inspect Renamed topic' }).count(), 0);
+    assert.equal(await page.getByRole('button', { name: 'Renamed topic', exact: true }).count(), 0);
   } finally { await context.close(); }
 });
 
@@ -131,17 +138,22 @@ test('long excerpt cards preview an exact slice and expand without changing stor
       const source = store.getProject().sources[0];
       store.addResearchAnalysis([{ name: 'Seating', description: 'Descriptions of seating comfort.', passages: [{ source: { id: source.id, revision: source.revision }, sectionIndex: 0, start: 0, end: source.preparedContent.sections[0].text.length }] }]);
     });
-    await page.getByRole('button', { name: 'Inspect Seating' }).click();
-    const quote = page.locator('blockquote');
+    await page.getByRole('button', { name: 'Seating', exact: true }).click();
+    const quote = page.locator('.research-source-list blockquote');
     const preview = await quote.textContent();
     assert.ok(text.includes(preview)); assert.ok(preview.length <= 320);
     assert.equal(preview.includes('Document header'), false);
-    await page.getByRole('button', { name: 'Show more' }).click();
-    assert.equal(await quote.textContent(), text.trim());
+    await page.getByRole('button', { name: 'View source', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Source details', exact: true });
+    const fullQuote = dialog.locator('blockquote');
+    assert.equal(await fullQuote.textContent(), preview);
+    await dialog.getByRole('button', { name: 'Show more' }).click();
+    assert.equal(await fullQuote.textContent(), text.trim());
     const download = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'View source' }).click();
+    await dialog.getByRole('button', { name: 'Download original', exact: true }).click();
     assert.equal((await download).suggestedFilename(), 'notes.txt');
-    await page.getByRole('button', { name: 'Show less' }).click();
+    await dialog.getByRole('button', { name: 'Show less' }).click();
+    assert.equal(await fullQuote.textContent(), preview);
     assert.equal(await quote.textContent(), preview);
     const stored = await page.evaluate(async () => (await import('/src/state/projectStore.ts')).projectStore.getProject().sources[0].preparedContent.sections[0].text);
     assert.equal(stored, text.trim());

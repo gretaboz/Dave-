@@ -16,7 +16,10 @@ test('manual dimensions share the map, preserve research and earlier data, and p
     await page.getByLabel('Project name', { exact: true }).fill('Dimension test');
     await page.getByRole('button', { name: 'Create project', exact: true }).click();
     await page.getByRole('button', { name: 'Dimensions', exact: true }).click();
+    assert.equal(await page.getByRole('button', { name: 'Show dimensions', exact: true }).isEnabled(), true);
     await page.getByRole('button', { name: 'Show dimensions', exact: true }).click();
+    await page.getByRole('button', { name: 'Add dimension', exact: true }).click();
+    await page.getByRole('form', { name: 'Add dimension', exact: true }).getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.getByText('Add dimensions manually to explore design considerations.', { exact: false }).waitFor();
     const original = await page.evaluate(async () => {
       const s = (await import('/src/state/projectStore.ts')).projectStore;
@@ -64,7 +67,8 @@ test('manual dimensions share the map, preserve research and earlier data, and p
     await card.getByRole('heading',{name:'Mechanical assistance',exact:true}).click();
     await page.waitForFunction(() => [...document.querySelectorAll('[data-association-from]')].every(line => getComputedStyle(line).opacity === '0.95'));
     assert.deepEqual(await lines.evaluateAll(items => items.map(line => line.dataset.active)), ['true', 'true']);
-    await page.getByRole('button',{name:'Clear selection',exact:true}).click();
+    // The same findings control toggles the dimension inspector and its highlights.
+    await card.getByRole('button', { name: 'Associated findings (2)', exact: true }).click();
     await page.waitForFunction(() => [...document.querySelectorAll('[data-association-from]')].every(line => getComputedStyle(line).opacity === '0.32'));
     assert.deepEqual(await lines.evaluateAll(items => items.map(line => line.dataset.active)), ['false', 'false']);
     await card.getByRole('button', { name: 'Associated findings (2)', exact: true }).click();
